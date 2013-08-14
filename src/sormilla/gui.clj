@@ -14,7 +14,7 @@
         (Thread/sleep throttle)
         nil))))
 
-(defn make-frame [source render & {:keys [interval safe safe-throttle max-size top] :or {interval 50 safe-throttle 500 max-size true}}]
+(defn make-frame [source render & {:keys [interval safe safe-throttle max-size top exit-on-close] :or {interval 50 safe-throttle 500 max-size true}}]
   (let [run (atom true)
         frame (JFrame.)
         source (if safe (->safe safe-throttle source) source)
@@ -25,7 +25,8 @@
     (when top
       (.setAlwaysOnTop frame true))
     (.setLocationByPlatform frame true)
-    (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE)
+    (when exit-on-close
+      (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
     (.setVisible frame true)
     (.createBufferStrategy frame 2)
     (let [strategy (.getBufferStrategy frame)]
