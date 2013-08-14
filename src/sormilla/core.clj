@@ -23,8 +23,8 @@
       (.fill g (Ellipse2D$Double. (double x) (double y) (double d) (double d))))))
 
 (def pos (normalizer  [-300.0 300.0] [-900.0 +900.0]))
-(def size (normalizer [-300.0 300.0] [70.0 15.0]))
-(def sphere-size (normalizer [50.0 100.0] [10.0 250.0]))
+(def size (normalizer [-300.0 300.0] [150.0 15.0]))
+(def sphere-size (normalizer [50.0 100.0] [10.0 150.0]))
 
 (defn ->finger [color [x y z]]
   [(pos x) (pos z) (size y) color])
