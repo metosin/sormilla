@@ -6,8 +6,8 @@
 
 (set! *warn-on-reflection* true)
 
-(def cutive (with-open [in (io/input-stream (io/resource "CutiveMono-Regular.ttf"))]
-              (Font/createFont Font/TRUETYPE_FONT in)))
+(def ^Font cutive (with-open [in (io/input-stream (io/resource "CutiveMono-Regular.ttf"))]
+                    (Font/createFont Font/TRUETYPE_FONT in)))
 
 (defn ->safe [throttle f]
   (fn [& args]
@@ -24,21 +24,22 @@
         canvas (Canvas.)
         source (if safe (->safe safe-throttle source) source)
         render (if safe (->safe safe-throttle render) render)]
-    (if max-size
-      (.setExtendedState frame JFrame/MAXIMIZED_BOTH)
-      (.setSize frame 800 500))
-    (when top
-      (.setAlwaysOnTop frame true))
-    (when exit-on-close
-      (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
     (.setIgnoreRepaint frame true)
     (.setIgnoreRepaint canvas true)
     (.add frame canvas)
     (.pack frame)
+    (.setSize canvas 800 500)
+    (.setSize frame 800 500)
+    (if max-size
+      (.setExtendedState frame JFrame/MAXIMIZED_BOTH))
+    (when top
+      (.setAlwaysOnTop frame true))
+    (when exit-on-close
+      (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
     (.setVisible frame true)
     (.createBufferStrategy canvas 2)
-    (let [strategy (.getBufferStrategy canvas)]
-      (future
+    (future
+      (let [strategy (.getBufferStrategy canvas)]
         (try
           (while (deref run)
             (let [start (System/currentTimeMillis)
@@ -52,15 +53,14 @@
                     (when (.contentsRestored strategy) (recur true)))
                   (.show strategy)
                   (when (.contentsLost strategy) (recur true))))
-              (let [time-left (- (System/currentTimeMillis) start interval)]
-                #_(println "time-left:" time-left interval)
+              (let [time-left (- interval (- (System/currentTimeMillis) start))]
                 (when (pos? time-left)
                   (Thread/sleep time-left)))))
           (catch Throwable e
             (println "Oh shit!" e)
-            (throw e))))
-      {:run run
-       :frame frame})))
+            (throw e)))))
+    {:run run
+     :frame frame}))
 
 (defn close-frame! [f]
   (when-let [{run :run ^JFrame frame :frame} f]

@@ -16,13 +16,10 @@
        :roll          (.roll normal)})))
 
 (defn frame [^Controller c]
-  (let [f             (.frame c)
-        hands         (.hands f)
-        hand-count    (.count hands)
-        left-hand     (when (pos? hand-count) (->hand (.rightmost hands)))
-        right-hand    (when (> hand-count 1) (->hand (.leftmost hands)))]
-    {:left left-hand
-     :right right-hand}))
+  (let [hands         (-> c .frame .hands) 
+        hand-count    (.count hands)]
+    {:right (when (pos? hand-count) (->hand (.rightmost hands)))
+     :left  (when (> hand-count 1) (->hand (.leftmost hands)))}))
 
 (comment
   
