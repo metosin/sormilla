@@ -32,6 +32,15 @@
      ~@body
      (.setTransform ~g t#)))
 
+(defn normalizer [[f1 f2] [t1 t2]]
+  (let [r (/ (- t2 t1) (- f2 f1))]
+    (fn [v]
+      (+ (* (- v f1) r) t1))))
+
+(defn scale [v fmin fmax tmin tmax]
+  (let [r (/ (- tmax tmin) (- fmax fmin))]
+    (+ (* (- v fmin) r) tmin)))
+
 (defn render [^Graphics2D g ^long w ^long h frame]
   (.setColor g background-color)
   (.fillRect g 0 0 w h)
@@ -69,8 +78,10 @@
       (.setClip g (Rectangle. 0 0 (dec (/ w 2)) (dec (- h th))))
       (with-trans g
         (.translate g (double (/ w 4)) (double (/ (- h th) 2)))
-        (.translate g (:yaw left-hand) (:pitch left-hand))
-        (.rotate g (:roll left-hand))
+        (.translate g
+          (scale (:yaw left-hand) -0.6 +0.6 (/ w -4) (/ w 4))
+          (scale (:pitch left-hand) -1.5 +1.5 (/ w 4) (/ w -4)))
+        (.rotate g (- (:roll left-hand)))
         (.setColor g left-hand-lo-color)
         (.fillOval g -150 -20 300 40)
         (.setColor g left-hand-color)
@@ -100,8 +111,8 @@
 
 (defn dymmy-source []
   {:left {:finger-count    3
-          :pitch           10.0
-          :yaw             -30.0
+          :pitch           1.0
+          :yaw             0.0
           :roll            0.1}
    :right {:finger-count   1
            :pitch          0.5
