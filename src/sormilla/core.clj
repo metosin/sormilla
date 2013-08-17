@@ -58,13 +58,13 @@
   (doseq [n (range 5 50 10)]
     (.drawRect g 5 n 23 5))
   (.setColor g norm)
-  (.setClip g (Rectangle. 0 0 (/ w 2) (- h th)))
+  (.setClip g (Rectangle. 0 0 (/ w 2) h))
   (with-trans g
-    (.translate g (double (/ w 4)) (double (/ (- h th) 2)))
+    (.translate g (double (/ w 4)) (double (/ h 2)))
     (.translate g
       (double (-> yaw math/clip-to-zero (math/lin-scale -0.6 +0.6 (/ w -4) (/ w 4))))
-      (double (-> pitch math/clip-to-zero (math/lin-scale -1.5 +1.5 (/ w 4) (/ w -4)))))
-    (.rotate g (- roll))
+      (double (-> pitch math/clip-to-zero (math/lin-scale -0.3 +0.3 (/ w 4) (/ w -4)))))
+    (.rotate g (- (-> roll math/clip-to-zero)))
     (.setColor g lo)
     (.fillOval g -150 -20 300 40)
     (.setColor g norm)
@@ -85,17 +85,16 @@
     (.setColor g hud-color)
     (.setFont g font)
     (.drawLine g (/ w 2 ) 0 (/ w 2) h)
-    (.drawLine g 0 (- h th) w (- h th))
     (.drawString g message (int (- (/ w 4) (/ tw 2))) (int (- h td)))
     (.drawString g message (int (- (* 3 (/ w 4)) (/ tw 2))) (int (- h td)))
     (.setColor g hud-lo-color)
     (doseq [x (map (fn [v] (int (* v (/ w 20.0)))) (range 20))]
-      (.drawLine g x 0 x (- h th)))
+      (.drawLine g x 0 x h))
     (doseq [x (map (fn [v] (int (* v (/ w 100.0)))) (range 100))]
-      (.drawLine g x (- (/ (- h th) 2) 5) x (+ (/ (- h th) 2) 5)))
-    (doseq [y (map (fn [v] (int (* v (/ (- h th) 10.0)))) (range 10))]
+      (.drawLine g x (- (/ h 2) 5) x (+ (/ h 2) 5)))
+    (doseq [y (map (fn [v] (int (* v (/ h 10.0)))) (range 10))]
       (.drawLine g 0 y w y))
-    (doseq [y (map (fn [v] (int (* v (/ (- h th) 50.0)))) (range 50))]
+    (doseq [y (map (fn [v] (int (* v (/ h 50.0)))) (range 50))]
       (.drawLine g (- (/ w 4) 5) y (+ (/ w 4) 5) y)
       (.drawLine g (- (* 3 (/ w 4)) 5) y (+ (* 3 (/ w 4)) 5) y))
     (when left-hand (draw-hand g w h tw th td left-hand (:left hand-colors)))
