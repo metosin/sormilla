@@ -3,7 +3,7 @@
             [sormilla.leap :as leap]
             [sormilla.core :as core]))
 
-(defn -main []
+(defn -main [& args]
   (println "starting...")
-  (gui/make-frame (partial core/source (leap/connect)) core/render :exit-on-close true)
+  (gui/make-frame leap/frame core/render :exit-on-close true)
   (println "running..."))
