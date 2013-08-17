@@ -4,14 +4,26 @@
 
 (set! *warn-on-reflection* true)
 
+(defn x [^Finger finger]
+  (-> finger .tipPosition .getX))
+
+(defn middle-finger ^Finger [^FingerList fingers]
+  (when (pos? (.count fingers))
+    (nth (sort-by x (seq fingers)) (/ (.count fingers) 2))))
+
+(defn direction ^Vector [^Finger finger]
+  (when finger
+    (.direction finger)))
+
 (defn ->hand [^Hand hand]
-  (when (and hand (.isValid hand))
-    (let [fingers     (.fingers hand)
-          direction   (-> fingers .frontmost .direction)]
-      {:quality       (.count fingers)
-       :pitch         (-> direction .pitch double)
-       :yaw           (-> direction .yaw double)
-       :roll          (-> hand .palmNormal .roll double)})))
+  (when (.isValid hand)
+    (let [fingers  (.fingers hand)
+          aim      (-> fingers middle-finger direction)]
+      (when aim
+        {:quality       (.count fingers)
+         :pitch         (-> aim .pitch double)
+         :yaw           (-> aim .yaw double)
+         :roll          (-> hand .palmNormal .roll double)}))))
 
 (defn connect ^Controller []
   (Controller.))
@@ -22,7 +34,7 @@
   (let [hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
     [(when (> hand-count 1) (->hand (.leftmost hands)))
-     (when (pos? hand-count) (->hand (.rightmost hands)))]))
+     (when (> hand-count 0) (->hand (.rightmost hands)))]))
 
 (comment
   
