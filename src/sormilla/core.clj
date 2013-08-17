@@ -10,36 +10,52 @@
 (def hud-color            (Color.   64  192  64    92))
 (def hud-hi-color         (Color.   64  255  64   192))
 (def hud-lo-color         (Color.   64  192  64    32))
-(def left-hand-color      (Color.   64  255  64   192))
-(def left-hand-lo-color   (Color.   64  255  64    64))
-(def right-hand-color     (Color.  255   64  64   192))
-(def right-hand-lo-color  (Color.  255   64  64    64))
 
-(def hand-colors {:left   {:palm     (Color.  192    0    0   16)
-                           :roll     (Color.  192   32   32  192)
-                           :details  (Color.  255    0    0  192)}
-                  :right  {:palm     (Color.    0  192    0   16)
-                           :roll     (Color.   64  192   64  192)
-                           :details  (Color.    0  192    0  192)}})
+(def hand-colors {:left   {:norm     (Color.   64  255  64   192)
+                           :lo       (Color.   64  255  64    64)}
+                  :right  {:norm     (Color.  255   64  64   192)
+                           :lo       (Color.  255   64  64    64)}})
 
 (def font (.deriveFont gui/cutive (float 20.0)))
 
-(def message-fmt  "  %+5.2f    %+5.2f    %+5.2f")
-(def message      "r        p        y      ")
+(def ^String message-fmt  "  %+5.2f    %+5.2f    %+5.2f")
+(def ^String message      "r        p        y      ")
 
 (defmacro with-trans [^Graphics2D g & body]
   `(let [t# (.getTransform ~g)]
      ~@body
      (.setTransform ~g t#)))
 
-(defn normalizer [[f1 f2] [t1 t2]]
-  (let [r (/ (- t2 t1) (- f2 f1))]
-    (fn [v]
-      (+ (* (- v f1) r) t1))))
-
 (defn scale [v fmin fmax tmin tmax]
   (let [r (/ (- tmax tmin) (- fmax fmin))]
-    (+ (* (- v fmin) r) tmin)))
+    (double (+ (* (- v fmin) r) tmin))))
+
+(defn draw-hand [^Graphics2D g w h tw th td {:keys [quality roll pitch yaw]} {:keys [norm lo]}]
+  (.setColor g hud-hi-color)
+  (.drawString g
+    (format "  %+5.2f    %+5.2f    %+5.2f" roll pitch yaw)
+    (int (- (/ w 4) (/ tw 2)))
+    (int (- h td)))
+  (.setColor g hud-lo-color)
+  (doseq [n (range 5 (* 10 quality) 10)]
+    (.fillRect g 5 n 23 8))
+  (.setColor g hud-color)
+  (doseq [n (range 5 50 10)]
+    (.drawRect g 5 n 23 5))
+  (.setColor g norm)
+  (.setClip g (Rectangle. 0 0 (/ w 2) (- h th)))
+  (with-trans g
+    (.translate g (double (/ w 4)) (double (/ (- h th) 2)))
+    (.translate g
+      (double (scale yaw -0.6 +0.6 (/ w -4) (/ w 4)))
+      (double (scale pitch -1.5 +1.5 (/ w 4) (/ w -4))))
+    (.rotate g (- roll))
+    (.setColor g lo)
+    (.fillOval g -150 -20 300 40)
+    (.setColor g norm)
+    (.drawOval g -150 -20 300 40)
+    (.drawLine g -1000 0 1000 0)
+    (.drawLine g 0 -1000 0 1000)))
 
 (defn render [^Graphics2D g ^long w ^long h frame]
   (.setColor g background-color)
@@ -50,14 +66,14 @@
         tw         (.stringWidth fm message)
         th         (.getHeight fm)
         td         (.getDescent fm)]
-    (.setColor g hud-color)
-    (.setFont g font)
     (.setRenderingHint g RenderingHints/KEY_TEXT_ANTIALIASING RenderingHints/VALUE_TEXT_ANTIALIAS_ON)
     (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
+    (.setColor g hud-color)
+    (.setFont g font)
     (.drawLine g (/ w 2 ) 0 (/ w 2) h)
     (.drawLine g 0 (- h th) w (- h th))
-    (.drawString g message (int (- (/ w 4) (/ tw 2))) (- h td))
-    (.drawString g message (int (- (* 3 (/ w 4)) (/ tw 2))) (- h td))
+    (.drawString g message (int (- (/ w 4) (/ tw 2))) (int (- h td)))
+    (.drawString g message (int (- (* 3 (/ w 4)) (/ tw 2))) (int (- h td)))
     (.setColor g hud-lo-color)
     (doseq [x (map (fn [v] (int (* v (/ w 20.0)))) (range 20))]
       (.drawLine g x 0 x (- h th)))
@@ -68,57 +84,21 @@
     (doseq [y (map (fn [v] (int (* v (/ (- h th) 50.0)))) (range 50))]
       (.drawLine g (- (/ w 4) 5) y (+ (/ w 4) 5) y)
       (.drawLine g (- (* 3 (/ w 4)) 5) y (+ (* 3 (/ w 4)) 5) y))
-    (when left-hand
-      (.setColor g hud-hi-color)
-      (.drawString g
-        (format "  %+5.2f    %+5.2f    %+5.2f" (:roll left-hand) (:pitch left-hand) (:yaw left-hand))
-        (int (- (/ w 4) (/ tw 2)))
-        (- h td))
-      (.setColor g left-hand-color)
-      (.setClip g (Rectangle. 0 0 (dec (/ w 2)) (dec (- h th))))
-      (with-trans g
-        (.translate g (double (/ w 4)) (double (/ (- h th) 2)))
-        (.translate g
-          (scale (:yaw left-hand) -0.6 +0.6 (/ w -4) (/ w 4))
-          (scale (:pitch left-hand) -1.5 +1.5 (/ w 4) (/ w -4)))
-        (.rotate g (- (:roll left-hand)))
-        (.setColor g left-hand-lo-color)
-        (.fillOval g -150 -20 300 40)
-        (.setColor g left-hand-color)
-        (.drawOval g -150 -20 300 40)
-        (.drawLine g -1000 0 1000 0)
-        (.drawLine g 0 -1000 0 1000)))
-    (.setColor g hud-color)
+    (when left-hand (draw-hand g w h tw th td left-hand (:left hand-colors)))
     (.setClip g (Rectangle. 0 0 (inc w) (inc h)))
-    (when right-hand
-      (.setColor g hud-hi-color)
-      (.drawString g
-        (format "  %+5.2f    %+5.2f   %+5.2f" (:roll right-hand) (:pitch right-hand) (:yaw right-hand))
-        (int (- (* 3 (/ w 4)) (/ tw 2)))
-        (- h td))
-      (.setColor g right-hand-color)
-      (.setClip g (Rectangle. (inc (/ w 2)) 0 (inc (/ w 2)) (dec (- h th))))
-      (with-trans g
-        (.translate g (double (* 3 (/ w 4))) (double (/ (- h th) 2)))
-        (.translate g 20 -10)
-        (.rotate g -0.2)
-        (.setColor g right-hand-lo-color)
-        (.fillOval g -150 -20 300 40)
-        (.setColor g right-hand-color)
-        (.drawOval g -150 -20 300 40)
-        (.drawLine g -1000 0 1000 0)
-        (.drawLine g 0 -1000 0 1000)))))
+    (.translate g (double (/ w 2)) (double 0.0))
+    (when right-hand (draw-hand g w h tw th td right-hand (:right hand-colors)))))
 
 (defn dymmy-source []
-  {:left {:finger-count    3
-          :pitch           1.0
-          :yaw             0.0
-          :roll            0.1}
-   :right {:finger-count   1
-           :pitch          0.5
-           :yaw            0.5
-           :roll          -1.1}}
-  #_(leap/frame c))
+  {:left {:quality    3
+          :pitch      0.2
+          :yaw        0.2
+          :roll       0.2}
+   :right {:quality   3
+           :pitch     0.0
+           :yaw       0.0
+           :roll     -0.2}}
+ #_(leap/frame))
 
 (comment
   
