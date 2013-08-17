@@ -26,3 +26,11 @@
   (clip-to-zero -0.1) => (roughly  0.0)
   (clip-to-zero -0.2) => (roughly -0.1)
   (clip-to-zero -0.3) => (roughly -0.2))
+
+(fact "averager"
+  (let [a (averager 3)]
+    (a 1.0) => (roughly (avg [1.0 0.0 0.0]))
+    (a 2.0) => (roughly (avg [2.0 1.0 0.0]))
+    (a 3.0) => (roughly (avg [3.0 2.0 1.0]))
+    (a 4.0) => (roughly (avg [4.0 3.0 2.0]))
+    (a 5.0) => (roughly (avg [5.0 4.0 3.0]))))
