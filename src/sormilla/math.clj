@@ -15,8 +15,9 @@
 (defn abs [v]
   (if (pos? v) v (- v)))
 
-(defn clip-to-zero [v]
-  (if (< (abs v) 0.1) 0.0 (- v (if (pos? v) 0.1 -0.1))))
+(defn clip-to-zero [treshold]
+  (fn [v]
+    (if (< (abs v) treshold) 0.0 (- v (if (pos? v) treshold (- treshold))))))
 
 (defn averager [c]
   (let [buffer (atom (ring-buffer c))]

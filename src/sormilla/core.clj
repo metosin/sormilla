@@ -31,23 +31,23 @@
 
 (defn pitcher []
   (comp
-    (math/lin-scale -0.3 +0.3 100.0 -100.0)
+    (math/lin-scale -0.6 +0.6 100.0 -100.0)
     (math/averager 10)
-    math/clip-to-zero
+    (math/clip-to-zero 0.15)
     :pitch))
 
 (defn yawer []
   (comp
-    (math/lin-scale -0.6 +0.6 -100.0 100.0)
+    (math/lin-scale -0.6 +0.6 -150.0 150.0)
     (math/averager 10)
-    math/clip-to-zero
+    (math/clip-to-zero 0.15)
     :yaw))
 
 (defn roller []
   (comp
     -
     (math/averager 10)
-    math/clip-to-zero
+    (math/clip-to-zero 0.15)
     :roll))
 
 (defn hand-drawer [{:keys [norm lo]}]
@@ -114,7 +114,7 @@
     :yaw       0.2
     :roll     -0.0}]
   
-  #_(leap/frame)
+  (leap/frame)
   
   )
 
