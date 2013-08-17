@@ -1,4 +1,4 @@
-(defproject sormilla "0.1.0"
+(defproject sormilla "0.1.1-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [amalloy/ring-buffer "1.0"]]
   :profiles {:dev {:dependencies [[midje "1.5.1"]]
