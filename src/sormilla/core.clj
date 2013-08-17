@@ -62,8 +62,8 @@
   (with-trans g
     (.translate g (double (/ w 4)) (double (/ (- h th) 2)))
     (.translate g
-      (double (math/lin-scale yaw -0.6 +0.6 (/ w -4) (/ w 4)))
-      (double (math/lin-scale pitch -1.5 +1.5 (/ w 4) (/ w -4))))
+      (double (-> yaw math/clip-to-zero (math/lin-scale -0.6 +0.6 (/ w -4) (/ w 4))))
+      (double (-> pitch math/clip-to-zero (math/lin-scale -1.5 +1.5 (/ w 4) (/ w -4)))))
     (.rotate g (- roll))
     (.setColor g lo)
     (.fillOval g -150 -20 300 40)
@@ -106,16 +106,18 @@
 
 (defn dummy-source []
  
-  #_(leap/frame)
-  
   [{:quality    3
     :pitch      0.2
     :yaw        0.2
     :roll       0.2}
-   {:quality   1
+   {:quality   0
     :pitch     0.0
     :yaw       0.0
-    :roll     -0.2}])
+    :roll     -0.2}]
+  
+  (leap/frame)
+  
+  )
 
 (comment
   
