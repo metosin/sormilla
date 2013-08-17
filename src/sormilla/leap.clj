@@ -4,26 +4,13 @@
 
 (set! *warn-on-reflection* true)
 
-(defn valid? [^Finger f] (.isValid f))
-(defn direction ^Vector [^Finger finger] (.direction finger))
-(defn directions [fingers] (map direction fingers))
-(defn pitch ^double [^Vector direction] (.pitch direction))
-(defn yaw ^double [^Vector direction] (.yaw direction))
-
-(defn fingers [^Hand hand]
-  (let [fs (filter valid? (.fingers hand))
-        c (count fs)]
-    (if (= c 5)
-      [5 [(nth fs 1) (nth fs 2) (nth fs 3)]]
-      [c fs])))
-
 (defn ->hand [^Hand hand]
   (when (and hand (.isValid hand))
-    (let [[quality fingers]  (fingers hand)
-          directions         (directions fingers)]
-      {:quality       quality
-       :pitch         (avg (map pitch directions))
-       :yaw           (avg (map yaw directions))
+    (let [fingers     (.fingers hand)
+          direction   (-> fingers .frontmost .direction)]
+      {:quality       (.count fingers)
+       :pitch         (-> direction .pitch double)
+       :yaw           (-> direction .yaw double)
        :roll          (-> hand .palmNormal .roll double)})))
 
 (defn connect ^Controller []
@@ -39,7 +26,7 @@
 
 (comment
   
-  (:right (frame ))
+  (:right (frame))
   
   (require '[clojure.pprint :refer [pprint]])
   

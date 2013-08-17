@@ -7,12 +7,12 @@
   (avg [1.0 2.0 3.0]) => (roughly 2.0))
 
 (facts "lin-scale"
-  (lin-scale 0.5 0.0 1.0 10.0 20.0) => (roughly 15.0))
+  ((lin-scale 0.0 1.0 10.0 20.0) 0.5) => (roughly 15.0))
 
 (facts "bound"
-  (bound 0.0 1.0 0.5) => (roughly 0.5)
-  (bound 0.0 1.0 -0.5) => (roughly 0.0)
-  (bound 0.0 1.0 1.5) => (roughly 1.0))
+  ((bound 0.0 1.0) 0.5) => (roughly 0.5)
+  ((bound 0.0 1.0) -0.5) => (roughly 0.0)
+  ((bound 0.0 1.0) 1.5) => (roughly 1.0))
 
 (facts "abs"
   (abs 1.0) => (roughly 1.0)
