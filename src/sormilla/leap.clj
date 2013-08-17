@@ -16,14 +16,13 @@
     (.direction finger)))
 
 (defn ->hand [^Hand hand]
-  (when (.isValid hand)
-    (let [fingers  (.fingers hand)
-          aim      (-> fingers middle-finger direction)]
-      (when aim
-        {:quality       (.count fingers)
-         :pitch         (-> aim .pitch double)
-         :yaw           (-> aim .yaw double)
-         :roll          (-> hand .palmNormal .roll double)}))))
+  (let [fingers  (.fingers hand)
+        aim      (-> fingers middle-finger direction)]
+    (when aim
+      {:quality       (.count fingers)
+       :pitch         (-> aim .pitch double)
+       :yaw           (-> aim .yaw double)
+       :roll          (-> hand .palmNormal .roll double)})))
 
 (defn connect ^Controller []
   (Controller.))
