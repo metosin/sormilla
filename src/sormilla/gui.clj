@@ -1,5 +1,6 @@
 (ns sormilla.gui
-  (:import [java.awt Color Graphics2D]
+  (:require [clojure.java.io :as io])
+  (:import [java.awt Canvas Color Graphics2D Font]
            [java.awt.geom Ellipse2D$Double]
            [javax.swing JFrame JComponent]))
 
@@ -17,37 +18,46 @@
 (defn make-frame [source render & {:keys [interval safe safe-throttle max-size top exit-on-close] :or {interval 50 safe-throttle 500 max-size true}}]
   (let [run (atom true)
         frame (JFrame.)
+        canvas (Canvas.)
         source (if safe (->safe safe-throttle source) source)
         render (if safe (->safe safe-throttle render) render)]
+    (.setIgnoreRepaint frame true)
+    (.setIgnoreRepaint canvas true)
+    (.add frame canvas)
+    (.pack frame)
+    (.setSize canvas 800 500)
+    (.setSize frame 800 500)
     (if max-size
-      (.setExtendedState frame JFrame/MAXIMIZED_BOTH)
-      (.setSize frame 500 500))
+      (.setExtendedState frame JFrame/MAXIMIZED_BOTH))
     (when top
       (.setAlwaysOnTop frame true))
-    (.setLocationByPlatform frame true)
     (when exit-on-close
       (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
     (.setVisible frame true)
-    (.createBufferStrategy frame 2)
-    (let [strategy (.getBufferStrategy frame)]
-      (future
+    (.createBufferStrategy canvas 2)
+    (future
+      (let [strategy (.getBufferStrategy canvas)]
         (try
           (while (deref run)
-            (when-let [data (source)]
-              (loop [contents-lost? true]
-                (loop [restored? true]
-                  (let [g (.getDrawGraphics strategy)]
-                    (render g (.getWidth frame) (.getHeight frame) data)
-                    (.dispose g))
-                  (when (.contentsRestored strategy) (recur true)))
-                (.show strategy)
-                (when (.contentsLost strategy) (recur true))))
-            (Thread/sleep interval))
+            (let [start (System/currentTimeMillis)
+                  data (source)]
+              (when data
+                (loop [contents-lost? true]
+                  (loop [restored? true]
+                    (let [g (.getDrawGraphics strategy)]
+                      (render g (.getWidth canvas) (.getHeight canvas) data)
+                      (.dispose g))
+                    (when (.contentsRestored strategy) (recur true)))
+                  (.show strategy)
+                  (when (.contentsLost strategy) (recur true))))
+              (let [time-left (- interval (- (System/currentTimeMillis) start))]
+                (when (pos? time-left)
+                  (Thread/sleep time-left)))))
           (catch Throwable e
             (println "Oh shit!" e)
-            (throw e))))
-      {:run run
-       :frame frame})))
+            (throw e)))))
+    {:run run
+     :frame frame}))
 
 (defn close-frame! [f]
   (when-let [{run :run ^JFrame frame :frame} f]
@@ -61,20 +71,12 @@
   (defn r [^Graphics2D g ^long w ^long h data]
     (.setColor g Color/DARK_GRAY)
     (.fillRect g 0 0 w h)
-    (let [s (min (/ w 1000.0) (/ h 1000.0))]
-      (.translate g (/ w 2.0) (/ h 2.0))
-      (.scale g s s))
-    (doseq [[cx cy r ^Color c] data]
-      (let [d (* 2 r)
-          x (- cx r)
-          y (- cy r)]
-        (.setColor g c)
-        (.fill g (Ellipse2D$Double. (double x) (double y) (double d) (double d))))))
+    (.setColor g Color/RED)
+    (.drawLine g 0 0 w h)
+    (.drawLine g 0 h w 0))
   
   (defn s []
-    [[0 0 10 Color/GREEN]
-     [-400 -400 50 Color/RED]
-     [400 400 50 Color/BLUE]])
+    "foo")
   
   (def f (make-frame #'s #'r))
   (close-frame! f))

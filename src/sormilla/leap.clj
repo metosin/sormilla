@@ -1,50 +1,51 @@
 (ns sormilla.leap
-  (:import [com.leapmotion.leap Listener Controller Hand Frame FingerList Vector Gesture GestureList Gesture$Type Pointable]))
+  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable])
+  (:require [sormilla.math :refer [avg]]))
 
 (set! *warn-on-reflection* true)
 
-(def gesture-type {:swipe       Gesture$Type/TYPE_SWIPE
-                   :circle      Gesture$Type/TYPE_CIRCLE
-                   :screen-tap  Gesture$Type/TYPE_SCREEN_TAP
-                   :key-tap     Gesture$Type/TYPE_KEY_TAP})
+(defn x [^Finger finger]
+  (-> finger .tipPosition .getX))
 
-(defn connect []
-  (Controller.)
-  #_(doseq [g (vals gesture-type)]
-    (.enableGesture c g)))
+(defn middle-finger ^Finger [^FingerList fingers]
+  (when (pos? (.count fingers))
+    (nth (sort-by x (seq fingers)) (/ (.count fingers) 2))))
 
-(defn ->vector [^Vector v]
-  [(.getX v) (.getY v) (.getZ v)])
+(defn direction ^Vector [^Finger finger]
+  (when finger
+    (.direction finger)))
 
-(defn ->finger [^Pointable f]
-  (-> f .tipPosition ->vector))
+(defn ->hand [^Hand hand]
+  (let [fingers  (.fingers hand)
+        aim      (-> fingers middle-finger direction)]
+    (when aim
+      {:quality       (.count fingers)
+       :pitch         (-> aim .pitch double)
+       :yaw           (-> aim .yaw double)
+       :roll          (-> hand .palmNormal .roll double)})))
 
-(defn valid? [^Pointable f]
-  (.isValid f))
+(defn connect ^Controller []
+  (Controller.))
 
-(defn ->sphere [^Hand h]
-  (when h
-    (conj (->vector (.sphereCenter h)) (double (.sphereRadius h)))))
+(defonce ^Controller connection (connect))
 
-(defn frame [^Controller c]
-  (let [f (.frame c)
-        hands (.hands f)
-        both? (> (.count hands) 1)
-        lh (.leftmost hands)
-        rh (.rightmost hands)
-        lh (when (and lh (.isValid lh)) lh)
-        rh (when (and both? rh (.isValid rh)) rh)
-        lf (when lh (->> lh .fingers seq (filter valid?) (map ->finger)))
-        rf (when rh (->> rh .fingers seq (filter valid?) (map ->finger)))]
-    [lf (->sphere lh) rf (->sphere rh)]))
+(defn frame []
+  (let [hands         (-> connection .frame .hands) 
+        hand-count    (.count hands)]
+    [(when (> hand-count 1) (->hand (.leftmost hands)))
+     (when (> hand-count 0) (->hand (.rightmost hands)))]))
 
 (comment
   
-  (def c (connect))
-  (frame c)
+  (:right (frame))
   
-  (dotimes [n 100]
+  (require '[clojure.pprint :refer [pprint]])
+  
+  (dotimes [n 500]
     (Thread/sleep 100)
-    (dorun (map (fn [[x y z]] (printf "%10.3f  %10.3f  %10.3f\n" x y z) (flush)) (first (frame c)))))
+    (when-let [hand (:right (frame))]
+      (let [[quality pitch yaw roll] ((juxt :quality :pitch :yaw :roll) hand)]
+        (printf "%3d: %15.3f %15.3f %15.3f\n" quality pitch yaw roll)
+        (flush))))
 
 )
