@@ -17,10 +17,27 @@
                   :right  {:norm     (Color.  255   64  64   192)
                            :lo       (Color.  255   64  64    64)}})
 
+(def quality-colors [(Color.  192   64  64    64)
+                     (Color.  192   64  64    32)
+                     (Color.  192  192  64    32)
+                     (Color.   64  192  64    32)
+                     (Color.   64  192  64    64)])
+
 (def font (.deriveFont gui/cutive (float 20.0)))
 
 (def ^String message-fmt  "  %+5.2f    %+5.2f    %+5.2f")
 (def ^String message      "r        p        y      ")
+
+(def pitch-bounds (partial math/bound -0.5 0.5))
+(def yaw-bounds (partial math/bound -0.4 0.4))
+(def roll-bounds (partial math/bound -1.2 1.2))
+
+(defn tune [{:keys [pitch yaw roll] :as hand}]
+  (when hand
+    (assoc hand
+      :pitch (-> pitch math/clip-to-zero)
+      :yaw (-> yaw math/clip-to-zero)
+      :roll (-> roll math/clip-to-zero))))
 
 (defmacro with-trans [^Graphics2D g & body]
   `(let [t# (.getTransform ~g)]
@@ -33,9 +50,10 @@
     (format "  %+5.2f    %+5.2f    %+5.2f" roll pitch yaw)
     (int (- (/ w 4) (/ tw 2)))
     (int (- h td)))
-  (.setColor g hud-lo-color)
-  (doseq [n (range 5 (* 10 quality) 10)]
-    (.fillRect g 5 n 23 8))
+  (when (pos? quality)
+    (.setColor g (nth quality-colors (dec quality)))
+    (doseq [n (range 5 (* 10 quality) 10)]
+      (.fillRect g 5 n 23 8)))
   (.setColor g hud-color)
   (doseq [n (range 5 50 10)]
     (.drawRect g 5 n 23 5))
@@ -85,71 +103,23 @@
     (.translate g (double (/ w 2)) (double 0.0))
     (when right-hand (draw-hand g w h tw th td right-hand (:right hand-colors)))))
 
-(def pitch-bounds (partial math/bound -0.5 0.5))
-(def yaw-bounds (partial math/bound -0.4 0.4))
-(def roll-bounds (partial math/bound -1.2 1.2))
 
-(defn tune [{:keys [pitch yaw roll] :as hand}]
-  (when hand
-    (assoc hand
-      :pitch (-> pitch math/clip-to-zero)
-      :yaw (-> yaw math/clip-to-zero)
-      :roll (-> roll math/clip-to-zero))))
-
-(defn source []
+(defn dummy-source []
  
-  (let [[left-hand right-hand] (leap/frame)]
-    [(tune left-hand) (tune right-hand)])
+  #_(leap/frame)
   
-  #_[{:quality    3
+  [{:quality    3
     :pitch      0.2
     :yaw        0.2
     :roll       0.2}
-   {:quality   3
+   {:quality   1
     :pitch     0.0
     :yaw       0.0
     :roll     -0.2}])
 
 (comment
   
-  (def c (leap/connect))
-  (def f (gui/make-frame (partial leap/frame c) render :safe true :top true :max-size false))
+  (def f (gui/make-frame #'dummy-source #'render :safe true :top true :max-size false :interval 50))
   (gui/close-frame! f)
-  
-  (def f (gui/make-frame #'dymmy-source #'render :safe true :top true :max-size false :interval 50))
-  (gui/close-frame! f)
-
-  (dotimes [n 100]
-    (Thread/sleep 100)
-    (printf "%15.3f\n" (-> (leap/frame c) :left :fingers first :pos (nth 1)))
-    (flush))
-
-  (defn draw-roll [^Graphics2D g hand side]
-    (with-transforms g
-      (.translate g (+ (yaw (:yaw hand)) (if (= side :left) -400 400)) (pitch (:pitch hand)))
-      (.rotate g (double (- (:roll hand))))
-      (.fill g (Ellipse2D$Double. -350 -30 750 60))))
-  
-  (defn draw-details [^Graphics2D g hand side]
-    (let [font     (.deriveFont gui/cutive (float 30.0))
-          fm       (.getFontMetrics g font)
-          message  (format "r: %5.2f  p: %5.2f y: %5.2f" (:roll hand) (:pitch hand) (:yaw hand))
-          w        (.stringWidth fm message)]
-      (.setFont g font)
-      (.setRenderingHint g RenderingHints/KEY_TEXT_ANTIALIASING RenderingHints/VALUE_TEXT_ANTIALIAS_ON)
-      (.drawString g message (- (if (= side :left) -500 500) (/ w 2)) 490)))
-  
-
-  
-  (defn normalizer [[f1 f2] [t1 t2]]
-  (let [r (/ (- t2 t1) (- f2 f1))]
-    (fn [v]
-      (+ (* (- v f1) r) t1))))
-
-(def pos (normalizer  [-300.0 300.0] [-900.0 +900.0]))
-(def finger-size (normalizer [50.0 500.0] [150.0 10.0]))
-(def palm-size (normalizer [50.0 100.0] [10.0 150.0]))
-(def yaw (normalizer [-0.75 +0.75] [-500 500]))
-(def pitch (normalizer [-1.5 +1.5] [+500 -500]))
 
 )
