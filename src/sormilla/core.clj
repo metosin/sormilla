@@ -23,11 +23,6 @@
                      (Color.   64  192  64    32)
                      (Color.   64  192  64    64)])
 
-(def font (.deriveFont gui/cutive (float 20.0)))
-
-(def ^String message-fmt  "  %+5.2f    %+5.2f    %+5.2f")
-(def ^String message      "r        p        y      ")
-
 (def pitch-bounds (partial math/bound -0.5 0.5))
 (def yaw-bounds (partial math/bound -0.4 0.4))
 (def roll-bounds (partial math/bound -1.2 1.2))
@@ -44,12 +39,7 @@
      ~@body
      (.setTransform ~g t#)))
 
-(defn draw-hand [^Graphics2D g w h tw th td {:keys [quality roll pitch yaw]} {:keys [norm lo]}]
-  (.setColor g hud-hi-color)
-  (.drawString g
-    (format "  %+5.2f    %+5.2f    %+5.2f" roll pitch yaw)
-    (int (- (/ w 4) (/ tw 2)))
-    (int (- h td)))
+(defn draw-hand [^Graphics2D g w h {:keys [quality roll pitch yaw]} {:keys [norm lo]}]
   (when (pos? quality)
     (.setColor g (nth quality-colors (dec quality)))
     (doseq [n (range 5 (* 10 quality) 10)]
@@ -75,18 +65,10 @@
 (defn render [^Graphics2D g ^long w ^long h frame]
   (.setColor g background-color)
   (.fillRect g 0 0 w h)
-  (let [[left-hand right-hand] frame
-        fm         (.getFontMetrics g font)
-        tw         (.stringWidth fm message)
-        th         (.getHeight fm)
-        td         (.getDescent fm)]
-    (.setRenderingHint g RenderingHints/KEY_TEXT_ANTIALIASING RenderingHints/VALUE_TEXT_ANTIALIAS_ON)
-    (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
+  (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
+  (let [[left-hand right-hand] frame]
     (.setColor g hud-color)
-    (.setFont g font)
     (.drawLine g (/ w 2 ) 0 (/ w 2) h)
-    (.drawString g message (int (- (/ w 4) (/ tw 2))) (int (- h td)))
-    (.drawString g message (int (- (* 3 (/ w 4)) (/ tw 2))) (int (- h td)))
     (.setColor g hud-lo-color)
     (doseq [x (map (fn [v] (int (* v (/ w 20.0)))) (range 20))]
       (.drawLine g x 0 x h))
@@ -97,10 +79,10 @@
     (doseq [y (map (fn [v] (int (* v (/ h 50.0)))) (range 50))]
       (.drawLine g (- (/ w 4) 5) y (+ (/ w 4) 5) y)
       (.drawLine g (- (* 3 (/ w 4)) 5) y (+ (* 3 (/ w 4)) 5) y))
-    (when left-hand (draw-hand g w h tw th td left-hand (:left hand-colors)))
+    (when left-hand (draw-hand g w h left-hand (:left hand-colors)))
     (.setClip g (Rectangle. 0 0 (inc w) (inc h)))
     (.translate g (double (/ w 2)) (double 0.0))
-    (when right-hand (draw-hand g w h tw th td right-hand (:right hand-colors)))))
+    (when right-hand (draw-hand g w h right-hand (:right hand-colors)))))
 
 
 (defn dummy-source []
