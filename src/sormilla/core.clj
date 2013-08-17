@@ -89,8 +89,8 @@
         (.rotate g (roll hand))
         (.setStroke g stroke-1)
         (.setColor g lo)
-        (.fillOval g -75 -10 150 20)
-        (.drawOval g -75 -10 150 20)
+        (.fillOval g -40 -6 80 12)
+        (.drawOval g -40 -6 80 12)
         (.drawLine g -200 0 200 0)
         (.drawLine g 0 -200 0 200)))))
 
