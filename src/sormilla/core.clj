@@ -96,7 +96,7 @@
       :yaw (-> yaw math/clip-to-zero)
       :roll (-> roll math/clip-to-zero))))
 
-(defn dymmy-source []
+(defn source []
  
   (let [[left-hand right-hand] (leap/frame)]
     [(tune left-hand) (tune right-hand)])
