@@ -6,9 +6,6 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^Font cutive (with-open [in (io/input-stream (io/resource "CutiveMono-Regular.ttf"))]
-                    (Font/createFont Font/TRUETYPE_FONT in)))
-
 (defn ->safe [throttle f]
   (fn [& args]
     (try

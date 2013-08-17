@@ -24,54 +24,60 @@
                      (Color.   64  192  64    32)
                      (Color.   64  192  64    64)])
 
-(def pitch
-  (comp
-    (math/lin-scale -0.3 +0.3 100.0 -100.0)
-    (math/averager 5)
-    math/clip-to-zero
-    :pitch))
-
-(def yaw
-  (comp
-    (math/lin-scale -0.6 +0.6 -100.0 100.0)
-    (math/averager 5)
-    math/clip-to-zero
-    :yaw))
-
-(def roll
-  (comp
-    -
-    (math/averager 5)
-    math/clip-to-zero
-    :roll))
-
 (defmacro with-trans [^Graphics2D g & body]
   `(let [t# (.getTransform ~g)]
      ~@body
      (.setTransform ~g t#)))
 
-(defn draw-hand [^Graphics2D g w h hand {:keys [norm lo]}]
-  (.setColor g (nth quality-colors (:quality hand)))
-  (doseq [n (range 5 (* 10 (:quality hand)) 10)]
-    (.fillRect g 5 n 23 8))
-  (.setColor g hud-color)
-  (doseq [n (range 5 50 10)]
-    (.drawRect g 5 n 23 5))
-  (.setColor g norm)
-  (.setClip g (Rectangle. 0 0 (/ w 2) h))
-  (with-trans g
-    (.translate g (double (/ w 4)) (double (/ h 2)))
-    (.scale g (double (/ (/ w 4) 100.0)) (double (/ (/ h 2) 100.0)))
-    (.translate g
-      (double (yaw hand))
-      (double (pitch hand)))
-    (.rotate g (roll hand))
-    (.setColor g lo)
-    (.fillOval g -75 -10 150 20)
-    (.setColor g norm)
-    (.drawOval g -75 -10 150 20)
-    (.drawLine g -1000 0 1000 0)
-    (.drawLine g 0 -1000 0 1000)))
+(defn pitcher []
+  (comp
+    (math/lin-scale -0.3 +0.3 100.0 -100.0)
+    (math/averager 10)
+    math/clip-to-zero
+    :pitch))
+
+(defn yawer []
+  (comp
+    (math/lin-scale -0.6 +0.6 -100.0 100.0)
+    (math/averager 10)
+    math/clip-to-zero
+    :yaw))
+
+(defn roller []
+  (comp
+    -
+    (math/averager 10)
+    math/clip-to-zero
+    :roll))
+
+(defn hand-drawer [{:keys [norm lo]}]
+  (let [pitch (pitcher)
+        yaw (yawer)
+        roll (roller)]
+    (fn [^Graphics2D g w h hand]
+      (when hand
+        (.setColor g (nth quality-colors (:quality hand)))
+        (doseq [n (range 5 (* 10 (:quality hand)) 10)]
+          (.fillRect g 5 n 23 8))
+        (.setColor g hud-color)
+        (doseq [n (range 5 50 10)]
+          (.drawRect g 5 n 23 5))
+        (.setColor g norm)
+        (.setClip g (Rectangle. 0 0 (/ w 2) h))
+        (with-trans g
+          (.translate g (double (/ w 4)) (double (/ h 2)))
+          (.scale g (double (/ (/ w 4) 100.0)) (double (/ (/ h 2) 100.0)))
+          (.translate g (double (yaw hand)) (double (pitch hand)))
+          (.rotate g (roll hand))
+          (.setColor g lo)
+          (.fillOval g -75 -10 150 20)
+          (.setColor g norm)
+          (.drawOval g -75 -10 150 20)
+          (.drawLine g -200 0 200 0)
+          (.drawLine g 0 -200 0 200))))))
+
+(def draw-left-hand (hand-drawer (:left hand-colors)))
+(def draw-right-hand (hand-drawer (:right hand-colors)))
 
 (defn render [^Graphics2D g ^long w ^long h frame]
   (.setColor g background-color)
@@ -90,10 +96,10 @@
     (doseq [y (map (fn [v] (int (* v (/ h 50.0)))) (range 50))]
       (.drawLine g (- (/ w 4) 5) y (+ (/ w 4) 5) y)
       (.drawLine g (- (* 3 (/ w 4)) 5) y (+ (* 3 (/ w 4)) 5) y))
-    (when left-hand (draw-hand g w h left-hand (:left hand-colors)))
+    (draw-left-hand g w h (nth frame 0))
     (.setClip g (Rectangle. 0 0 (inc w) (inc h)))
     (.translate g (double (/ w 2)) (double 0.0))
-    (when right-hand (draw-hand g w h right-hand (:right hand-colors)))))
+    (draw-right-hand g w h (nth frame 1))))
 
 
 (defn dummy-source []
@@ -102,10 +108,11 @@
     :pitch      0.0
     :yaw        0.0
     :roll       0.0}
+
    {:quality   0
     :pitch     0.2
     :yaw       0.2
-    :roll     -0.3}]
+    :roll     -0.0}]
   
   #_(leap/frame)
   
