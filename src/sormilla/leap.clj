@@ -1,5 +1,6 @@
 (ns sormilla.leap
-  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable]))
+  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable])
+  (:require [sormilla.math :refer [avg]]))
 
 (set! *warn-on-reflection* true)
 
@@ -16,16 +17,13 @@
       [5 [(nth fs 1) (nth fs 2) (nth fs 3)]]
       [c fs])))
 
-(defn avg [directions value-fn]
-  (/ (reduce + (map value-fn directions)) (double (count directions))))
-
 (defn ->hand [^Hand hand]
   (when (and hand (.isValid hand))
     (let [[quality fingers]  (fingers hand)
           directions         (directions fingers)]
       {:quality       quality
-       :pitch         (avg directions pitch)
-       :yaw           (avg directions yaw)
+       :pitch         (avg (map pitch directions))
+       :yaw           (avg (map yaw directions))
        :roll          (-> hand .palmNormal .roll double)})))
 
 (defn connect ^Controller []
@@ -36,8 +34,8 @@
 (defn frame []
   (let [hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
-    {:right (when (pos? hand-count) (->hand (.rightmost hands)))
-     :left  (when (> hand-count 1) (->hand (.leftmost hands)))}))
+    [(when (> hand-count 1) (->hand (.leftmost hands)))
+     (when (pos? hand-count) (->hand (.rightmost hands)))]))
 
 (comment
   

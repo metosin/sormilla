@@ -1,6 +1,7 @@
 (ns sormilla.core
   (:require [sormilla.gui :as gui]
-            [sormilla.leap :as leap])
+            [sormilla.leap :as leap]
+            [sormilla.math :as math])
   (:import [java.awt Color Graphics2D RenderingHints Rectangle]
            [java.awt.geom Ellipse2D$Double]))
 
@@ -26,10 +27,6 @@
      ~@body
      (.setTransform ~g t#)))
 
-(defn scale [v fmin fmax tmin tmax]
-  (let [r (/ (- tmax tmin) (- fmax fmin))]
-    (double (+ (* (- v fmin) r) tmin))))
-
 (defn draw-hand [^Graphics2D g w h tw th td {:keys [quality roll pitch yaw]} {:keys [norm lo]}]
   (.setColor g hud-hi-color)
   (.drawString g
@@ -47,8 +44,8 @@
   (with-trans g
     (.translate g (double (/ w 4)) (double (/ (- h th) 2)))
     (.translate g
-      (double (scale yaw -0.6 +0.6 (/ w -4) (/ w 4)))
-      (double (scale pitch -1.5 +1.5 (/ w 4) (/ w -4))))
+      (double (math/lin-scale yaw -0.6 +0.6 (/ w -4) (/ w 4)))
+      (double (math/lin-scale pitch -1.5 +1.5 (/ w 4) (/ w -4))))
     (.rotate g (- roll))
     (.setColor g lo)
     (.fillOval g -150 -20 300 40)
@@ -60,8 +57,7 @@
 (defn render [^Graphics2D g ^long w ^long h frame]
   (.setColor g background-color)
   (.fillRect g 0 0 w h)
-  (let [left-hand  (:left frame)
-        right-hand (:right frame)
+  (let [[left-hand right-hand] frame
         fm         (.getFontMetrics g font)
         tw         (.stringWidth fm message)
         th         (.getHeight fm)
@@ -89,16 +85,30 @@
     (.translate g (double (/ w 2)) (double 0.0))
     (when right-hand (draw-hand g w h tw th td right-hand (:right hand-colors)))))
 
+(def pitch-bounds (partial math/bound -0.5 0.5))
+(def yaw-bounds (partial math/bound -0.4 0.4))
+(def roll-bounds (partial math/bound -1.2 1.2))
+
+(defn tune [{:keys [pitch yaw roll] :as hand}]
+  (when hand
+    (assoc hand
+      :pitch (-> pitch math/clip-to-zero)
+      :yaw (-> yaw math/clip-to-zero)
+      :roll (-> roll math/clip-to-zero))))
+
 (defn dymmy-source []
-  {:left {:quality    3
-          :pitch      0.2
-          :yaw        0.2
-          :roll       0.2}
-   :right {:quality   3
-           :pitch     0.0
-           :yaw       0.0
-           :roll     -0.2}}
- #_(leap/frame))
+ 
+  (let [[left-hand right-hand] (leap/frame)]
+    [(tune left-hand) (tune right-hand)])
+  
+  #_[{:quality    3
+    :pitch      0.2
+    :yaw        0.2
+    :roll       0.2}
+   {:quality   3
+    :pitch     0.0
+    :yaw       0.0
+    :roll     -0.2}])
 
 (comment
   
