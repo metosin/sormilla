@@ -4,16 +4,13 @@
 (defn avg [coll]
   (/ (reduce + coll) (double (count coll))))
 
-(defn lin-scale [v fmin fmax tmin tmax]
+(defn lin-scale [fmin fmax tmin tmax]
   (let [r (/ (- tmax tmin) (- fmax fmin))]
-    (double (+ (* (- v fmin) r) tmin))))
+    (fn [v] (double (+ (* (- v fmin) r) tmin)))))
 
-(defn bound [lo hi v]
-  (if (< lo v hi)
-    v
-    (if (< lo v)
-      hi
-      lo)))
+(defn bound [lo hi]
+  (fn [v]
+    (if (< lo v hi) v (if (< lo v) hi lo))))
 
 (defn abs [v]
   (if (pos? v) v (- v)))
