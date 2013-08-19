@@ -36,14 +36,15 @@
 
 (defn pitcher []
   (comp
-    (math/lin-scale -0.6 +0.6 100.0 -100.0)
+    (math/lin-scale [-0.6 +0.6] [60.0 -60.0])
     (math/averager 10)
-    (math/clip-to-zero 0.15)
+    (math/clip-to-zero 0.25)
+    (fn [v] (- v 0.1))
     :pitch))
 
 (defn yawer []
   (comp
-    (math/lin-scale -0.6 +0.6 -150.0 150.0)
+    (math/lin-scale [-0.6 +0.6] [-100.0 100.0])
     (math/averager 10)
     (math/clip-to-zero 0.15)
     :yaw))
@@ -84,6 +85,7 @@
           (when (>= y quality) (.setColor g hud-lo-color))
           (.fillRect g -48 (- 48 (* y 3)) 8 2)))
 
+      ; draw "aim"
       (when hand
         (.translate g ^double (yaw hand) ^double (pitch hand))
         (.rotate g (roll hand))
@@ -127,11 +129,11 @@
     :roll       0.0}
 
    {:quality   5
-    :pitch     0.2
+    :pitch     0.4
     :yaw       0.2
     :roll     -0.2}]
   
-  #_(leap/frame)
+  (leap/frame)
   
   )
 
