@@ -29,22 +29,21 @@
 
 (defonce ^Controller connection (connect))
 
-(defn frame []
+(defn hand []
   (let [hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
-    [(when (> hand-count 1) (->hand (.leftmost hands)))
-     (when (> hand-count 0) (->hand (.rightmost hands)))]))
+    (when (pos? (.count hands)) (->hand (.leftmost hands)))))
 
 (comment
   
-  (:right (frame))
+  (hand)
   
   (require '[clojure.pprint :refer [pprint]])
   
   (dotimes [n 500]
     (Thread/sleep 100)
-    (when-let [hand (:right (frame))]
-      (let [[quality pitch yaw roll] ((juxt :quality :pitch :yaw :roll) hand)]
+    (when-let [h (hand)]
+      (let [[quality pitch yaw roll] ((juxt :quality :pitch :yaw :roll) h)]
         (printf "%3d: %15.3f %15.3f %15.3f\n" quality pitch yaw roll)
         (flush))))
 

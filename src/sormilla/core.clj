@@ -11,11 +11,8 @@
 (def hud-color            (Color.   64  192  64    92))
 (def hud-hi-color         (Color.   64  255  64   192))
 (def hud-lo-color         (Color.   64  192  64    32))
-
-(def hand-colors {:left   {:norm     (Color.   64  255  64   192)
-                           :lo       (Color.   64  255  64    64)}
-                  :right  {:norm     (Color.  255   64  64   192)
-                           :lo       (Color.  255   64  64    64)}})
+(def hand-hi              (Color.   64  255  64   192))
+(def hand-lo              (Color.   64  255  64    64))
 
 (def quality-colors [(Color.  255   64  64   192)
                      (Color.  255   64  64   192)
@@ -24,116 +21,80 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(def stroke-0 (BasicStroke. 0.0))
-(def stroke-1 (BasicStroke. 1.0))
+(def pitcher (comp
+               (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
+               (math/averager 10)
+               (math/clip-to-zero 0.25)
+               (fn [v] (- v 0.1))
+               :pitch))
 
-(defmacro with-trans [^Graphics2D g & body]
-  `(let [t# (.getTransform ~g)
-         c# (.getClip ~g)]
-     ~@body
-     (.setTransform ~g t#)
-     (.setClip ~g c#)))
+(def yawer (comp
+             (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
+             (math/averager 10)
+             (math/clip-to-zero 0.15)
+             :yaw))
 
-(defn pitcher []
-  (comp
-    (math/lin-scale [-0.6 +0.6] [60.0 -60.0])
-    (math/averager 10)
-    (math/clip-to-zero 0.25)
-    (fn [v] (- v 0.1))
-    :pitch))
+(def roller (comp
+              -
+              (math/averager 10)
+              (math/clip-to-zero 0.15)
+              :roll))
 
-(defn yawer []
-  (comp
-    (math/lin-scale [-0.6 +0.6] [-100.0 100.0])
-    (math/averager 10)
-    (math/clip-to-zero 0.15)
-    :yaw))
-
-(defn roller []
-  (comp
-    -
-    (math/averager 10)
-    (math/clip-to-zero 0.15)
-    :roll))
-
-(defn hand-drawer [{:keys [norm lo]}]
-  (let [pitch (pitcher)
-        yaw (yawer)
-        roll (roller)]
-    (fn [^Graphics2D g hand]
-      
-      ; clear background
-      (.setColor g background-color)
-      (.fillRect g 0 0 100 100)
-      
-      ; draw grid
-      (.setColor g hud-color)
-      (.setStroke g stroke-0)
-      (doseq [n (range -40 50 10)]
-        (.drawLine g -50 n 50 n)
-        (.drawLine g n -50 n 50))
-
-      ; draw zero axis
-      (.setColor g hud-hi-color)
-      (.drawLine g -50 0 50 0)
-      (.drawLine g 0 -50 0 50)
-      
-      ; draw quality boxes
-      (let [quality (:quality hand 0)]
-        (.setColor g (nth quality-colors quality))
-        (doseq [y (range 5)]
-          (when (>= y quality) (.setColor g hud-lo-color))
-          (.fillRect g -48 (- 48 (* y 3)) 8 2)))
-
-      ; draw "aim"
-      (when hand
-        (.translate g ^double (yaw hand) ^double (pitch hand))
-        (.rotate g (roll hand))
-        (.setStroke g stroke-1)
-        (.setColor g lo)
-        (.fillOval g -40 -6 80 12)
-        (.drawOval g -40 -6 80 12)
-        (.drawLine g -200 0 200 0)
-        (.drawLine g 0 -200 0 200)))))
-
-(def draw-left-hand (hand-drawer (:left hand-colors)))
-(def draw-right-hand (hand-drawer (:right hand-colors)))
-
-(defn render [^Graphics2D g ^long w ^long h frame]
+(defn render [^Graphics2D g ^long w ^long h hand]
   (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
   (.setColor g background-color)
   (.fillRect g 0 0 w h)
-  (let [w2 (/ w 2.0)
-        w4 (/ w 4.0)
-        h2 (/ h 2.0)]
-    (with-trans g
-      (.translate g w4 h2)
-      (.scale g (/ w2 100.0) (/ h 100.0))
-      (.setClip g (Rectangle. -50 -50 100 100))
-      (draw-left-hand g (first frame)))
-    (with-trans g
-      (.translate g (+ w2 w4) h2)
-      (.scale g (/ w2 100.0) (/ h 100.0))
-      (.setClip g (Rectangle. -50 -50 100 100))
-      (draw-right-hand g (second frame)))
-    (.setColor g hud-color)
-    (.setStroke g (BasicStroke. 1.0))
-    (.drawLine g w2 0 w2 h)))
+  (let [w2     (/ w 2.0)
+        h2     (/ h 2.0)]
 
+    ; clear background
+    (.setColor g background-color)
+    (.fillRect g 0 0 w h)
+    
+    ; draw grid
+    (.setColor g hud-lo-color)
+    (doseq [x (range (/ w 10) w (/ w 10))] (.drawLine g x 0 x h))
+    (doseq [y (range (/ h 10) h (/ h 10))] (.drawLine g 0 y w y))
+    
+    ; draw zero axis
+    (.setColor g hud-color)
+    (.drawLine g w2 0 w2 h)
+    (.drawLine g 0 h2 w h2)
+    (doseq [x (range (/ w 50) w (/ w 50))] (.drawLine g x (- h2 5) x (+ h2 5)))
+    (doseq [y (range (/ h 50) h (/ h 50))] (.drawLine g (- w2 5) y (+ w2 5) y))
+    
+    ; draw quality boxes
+    (let [quality (:quality hand 0)]
+      (.setColor g (nth quality-colors quality))
+      (doseq [y (range 5)]
+        (when (>= y quality) (.setColor g hud-lo-color))
+        (.fillRect g 5 (- h (* y 10) 10) 30 5)))
+    
+    ; draw "aim"
+    (when hand
+      (let [pitch  (* (pitcher hand) (/ h2 100.0) -1.0)
+            yaw    (* (yawer hand) (/ w2 100.0))
+            roll   (roller hand)
+            aim-w  (/ w 2.0)
+            aim-h  (/ h 10.0)
+            aim-x  (/ aim-w -2.0)
+            aim-y  (/ aim-h -2.0)]
+        (.translate g (double (+ w2 yaw)) (double (+ h2 pitch)))
+        (.rotate g roll)
+        (.setColor g hand-lo)
+        (.fillOval g aim-x aim-y aim-w aim-h)
+        (.drawOval g aim-x aim-y aim-w aim-h)
+        (.drawLine g -2000 0 2000 0)
+        (.drawLine g 0 -2000 0 2000)))))
 
 (defn dummy-source []
  
-  [{:quality    5
-    :pitch      0.0
+  {:quality     5
+    :pitch      0.1
     :yaw        0.0
-    :roll       0.0}
-
-   {:quality   5
-    :pitch     0.4
-    :yaw       0.2
-    :roll     -0.2}]
+    :roll       0.3}
   
-  (leap/frame)
+  (leap/hand)
   
   )
 

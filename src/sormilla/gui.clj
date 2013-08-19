@@ -42,15 +42,14 @@
           (while (deref run)
             (let [start (System/currentTimeMillis)
                   data (source)]
-              (when data
-                (loop [contents-lost? true]
-                  (loop [restored? true]
-                    (let [g (.getDrawGraphics strategy)]
-                      (render g (.getWidth canvas) (.getHeight canvas) data)
-                      (.dispose g))
-                    (when (.contentsRestored strategy) (recur true)))
-                  (.show strategy)
-                  (when (.contentsLost strategy) (recur true))))
+              (loop [contents-lost? true]
+                (loop [restored? true]
+                  (let [g (.getDrawGraphics strategy)]
+                    (render g (.getWidth canvas) (.getHeight canvas) data)
+                    (.dispose g))
+                  (when (.contentsRestored strategy) (recur true)))
+                (.show strategy)
+                (when (.contentsLost strategy) (recur true)))
               (let [time-left (- interval (- (System/currentTimeMillis) start))]
                 (when (pos? time-left)
                   (Thread/sleep time-left)))))
