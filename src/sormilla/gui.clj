@@ -1,6 +1,7 @@
 (ns sormilla.gui
   (:require [clojure.java.io :as io])
-  (:import [java.awt Canvas Color Graphics2D Font]
+  (:import [java.awt Canvas Color Graphics2D Font KeyboardFocusManager KeyEventDispatcher]
+           [java.awt.event KeyEvent]
            [java.awt.geom Ellipse2D$Double]
            [javax.swing JFrame JComponent]))
 
@@ -66,7 +67,46 @@
       (.setVisible false)
       (.dispose))))
 
+;;
+;; Keys
+;;
+
+(def key-types {KeyEvent/KEY_TYPED     :typed
+                KeyEvent/KEY_PRESSED   :pressed
+                KeyEvent/KEY_RELEASED  :released})
+
+(defn ->key-event [^KeyEvent e]
+  {:type   (key-types (.getID e))
+   :ch     (.getKeyChar e)
+   :code   (.getKeyCode e)
+   :action (.isActionKey e)
+   :shift  (.isShiftDown e)
+   :ctrl   (.isControlDown e)
+   :meta   (.isMetaDown e)
+   :alt    (.isAltDown e)})
+
+(def key-listeners (atom {}))
+
+(defn dispatch-key-event [e]
+  (doseq [f (filter identity (map (fn [[k v]] (when (= (select-keys e (keys k)) k) v)) @listeners))]
+    (f e)))
+
+(defonce key-event-dispatcher (let [d (proxy [KeyEventDispatcher] [] (dispatchKeyEvent [e] (dispatch-key-event (->key-event e)) true))]
+                                (.addKeyEventDispatcher (KeyboardFocusManager/getCurrentKeyboardFocusManager) d)
+                                d))
+
+(defn add-key-listener! [event listener]
+  (swap! key-listeners assoc event listener))
+
+(defn remove-key-listener! [event]
+  (swap! key-listeners dissoc event))
+
 (comment
+  
+  (add-key-listener! {:type :pressed} (fn [e] (println "pressed:" e)))
+  (add-key-listener! {:ch \a} (fn [e] (println "a:" e)))
+  (add-key-listener! {:ch \b :type :typed} (fn [e] (println "b:" e)))
+  (add-key-listener! {:type :pressed :code 65 :ctrl true} (fn [_] (println "ctrl-a")))
   
   (defn r [^Graphics2D g ^long w ^long h data]
     (.setColor g Color/DARK_GRAY)
