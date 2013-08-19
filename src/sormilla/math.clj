@@ -4,7 +4,7 @@
 (defn avg [coll]
   (/ (reduce + coll) (double (count coll))))
 
-(defn lin-scale [fmin fmax tmin tmax]
+(defn lin-scale [[fmin fmax] [tmin tmax]]
   (let [r (/ (- tmax tmin) (- fmax fmin))]
     (fn [v] (double (+ (* (- v fmin) r) tmin)))))
 

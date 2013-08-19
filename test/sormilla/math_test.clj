@@ -7,7 +7,10 @@
   (avg [1.0 2.0 3.0]) => (roughly 2.0))
 
 (facts "lin-scale"
-  ((lin-scale 0.0 1.0 10.0 20.0) 0.5) => (roughly 15.0))
+  (let [s (lin-scale [0.0 1.0] [10.0 20.0])]
+    (s 0.0) => (roughly 10.0)
+    (s 0.5) => (roughly 15.0)
+    (s 1.0) => (roughly 20.0)))
 
 (facts "bound"
   ((bound 0.0 1.0) 0.5) => (roughly 0.5)
@@ -19,13 +22,14 @@
   (abs -1.0) => (roughly 1.0))
 
 (facts "clip-to-zero"
-  (clip-to-zero +0.3) => (roughly +0.2)
-  (clip-to-zero +0.2) => (roughly +0.1)
-  (clip-to-zero +0.1) => (roughly  0.0)
-  (clip-to-zero +0.0) => (roughly  0.0)
-  (clip-to-zero -0.1) => (roughly  0.0)
-  (clip-to-zero -0.2) => (roughly -0.1)
-  (clip-to-zero -0.3) => (roughly -0.2))
+  (let [c (clip-to-zero 0.2)]
+    (c +0.3) => (roughly +0.1)
+    (c +0.2) => (roughly +0.0)
+    (c +0.1) => (roughly  0.0)
+    (c +0.0) => (roughly  0.0)
+    (c -0.1) => (roughly  0.0)
+    (c -0.2) => (roughly -0.0)
+    (c -0.3) => (roughly -0.1)))
 
 (fact "averager"
   (let [a (averager 3)]
