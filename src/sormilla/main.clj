@@ -1,9 +1,19 @@
 (ns sormilla.main
-  (:require [sormilla.gui :as gui]
-            [sormilla.leap :as leap]
-            [sormilla.core :as core]))
+  (:require [sormilla.system :as system]
+            [sormilla.leap]
+            [sormilla.drone]
+            [sormilla.swing :as swing]
+            [sormilla.gui :as gui]))
 
 (defn -main [& args]
   (println "starting...")
-  (gui/make-frame leap/frame core/render :exit-on-close true)
-  (println "running..."))
+  (let [f (swing/make-frame
+            gui/render
+            :exit-on-close true
+            :max-size true)]
+    (println "running. press any key to exit...")
+    (.read (System/in))
+    (println "closing...")
+    (system/shutdown!)))
+
+"application ready"

@@ -1,6 +1,6 @@
 (ns sormilla.leap
-  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable])
-  (:require [sormilla.math :refer [avg]]))
+  (:require [sormilla.system :refer [task]])
+  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable]))
 
 (set! *warn-on-reflection* true)
 
@@ -29,22 +29,13 @@
 
 (defonce ^Controller connection (connect))
 
-(defn hand []
+(defn leap []
   (let [hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
-    (when (pos? (.count hands)) (->hand (.leftmost hands)))))
+    (when (pos? (.count hands)) (->hand (.leftmost hands)))
+    #_{:quality 4
+     :pitch 0.0
+     :yaw 0.0
+     :roll 0.0}))
 
-(comment
-  
-  (hand)
-  
-  (require '[clojure.pprint :refer [pprint]])
-  
-  (dotimes [n 500]
-    (Thread/sleep 100)
-    (when-let [h (hand)]
-      (let [[quality pitch yaw roll] ((juxt :quality :pitch :yaw :roll) h)]
-        (printf "%3d: %15.3f %15.3f %15.3f\n" quality pitch yaw roll)
-        (flush))))
-
-)
+(task 50 leap)
