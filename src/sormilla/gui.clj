@@ -104,14 +104,14 @@
 
     ; draw "aim"
     (when-let [leap (:leap s)]
-      (with-transforms g
-        (let [pitch  (* (pitcher leap) (/ h2 100.0) -1.0)
-              yaw    (* (yawer leap) (/ w2 100.0))
-              roll   (roller leap)
-              aim-w  (/ w 2.0)
-              aim-h  (/ h 10.0)
-              aim-x  (/ aim-w -2.0)
-              aim-y  (/ aim-h -2.0)]
+      (let [pitch  (* (pitcher leap) (/ h2 100.0) -1.0)
+            yaw    (* (yawer leap) (/ w2 100.0))
+            roll   (roller leap)
+            aim-w  (/ w 2.0)
+            aim-h  (/ h 10.0)
+            aim-x  (/ aim-w -2.0)
+            aim-y  (/ aim-h -2.0)]
+        (with-transforms g
           (.translate g (+ w2 yaw) (+ h2 pitch))
           (.rotate g roll)
           (.setColor g leap-color)
