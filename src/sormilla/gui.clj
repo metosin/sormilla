@@ -22,34 +22,6 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(def pitcher (comp
-               (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
-               (math/averager 10)
-               (math/clip-to-zero 0.25)
-               (fn [v] (- v 0.1))
-               :pitch))
-
-(def yawer (comp
-             (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
-             (math/averager 10)
-             (math/clip-to-zero 0.15)
-             :yaw))
-
-(def roller (comp
-              -
-              (math/averager 10)
-              (math/clip-to-zero 0.15)
-              :roll))
-
-(def telemetry-pitcher (comp :pitch))
-(def telemetry-yawer (comp :yaw))
-(def telemetry-roller (comp :roll))
-(def telemetry-alter (comp :alt))
-
-(def current-keys (atom #{}))
-
-; (swing/add-key-listener! {:type :released} (fn [e] (println e)))
-
 (defn key->status! [code id]
   (swing/add-key-listener! {:type :pressed :code code} (fn [_] (swap! status assoc-in [:keys id] true)))
   (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys id] false))))
@@ -102,11 +74,12 @@
         (when (>= y quality) (.setColor g hud-lo-color))
         (.fillRect g 5 (- h (* y 10) 10) 30 5)))
 
+    #_(println (:leap s))
     ; draw "aim"
     (when-let [leap (:leap s)]
-      (let [pitch  (* (pitcher leap) (/ h2 100.0) -1.0)
-            yaw    (* (yawer leap) (/ w2 100.0))
-            roll   (roller leap)
+      (let [pitch  (* (:pitch leap) (/ h2 100.0) -1.0)
+            yaw    (* (:yaw leap) (/ w2 100.0))
+            roll   (:roll leap)
             aim-w  (/ w 2.0)
             aim-h  (/ h 10.0)
             aim-x  (/ aim-w -2.0)
@@ -122,10 +95,10 @@
     
     ; draw telemetry
     (when-let [telemetry (:telemetry s)]
-      (let [pitch  (telemetry-pitcher telemetry)
-            yaw    (telemetry-yawer telemetry)
-            roll   (telemetry-roller telemetry)
-            alt    (telemetry-alter telemetry)]
+      (let [pitch  (:pitch telemetry)
+            yaw    (:yaw telemetry)
+            roll   (:roll telemetry)
+            alt    (math/scale (:alt telemetry) 3000.0 h)]
         (with-transforms g
           (.setColor g telemetry-color)
           (.translate g (+ w2 yaw) (+ h2 pitch))
@@ -134,13 +107,4 @@
           (swing/draw-circle g (- w6) 0 20)
           (.drawLine g w6 0 (- w6) 0))
         (.setColor g alt-color)
-        (.fillRect g (- w 20) (- h alt) 20 h)))))
-
-(comment
-  (def f (swing/make-frame
-           #'render
-           :safe true
-           :top true))
-  (swing/close! f)
-  (system/shutdown!)
-)
+        (.fillRect g (- w 20) (- h alt) 20 alt)))))

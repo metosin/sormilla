@@ -14,7 +14,7 @@
   `(future
      (while (run?)
        (try
-         (swap! status assoc ~(keyword f) (~f))
+         (swap! status assoc ~(keyword (name f)) (~f @status))
          (Thread/sleep ~interval)
          (catch Throwable e#
            (println "task failure:" ~(name f))

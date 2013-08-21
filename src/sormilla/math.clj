@@ -8,6 +8,9 @@
   (let [r (/ (- tmax tmin) (- fmax fmin))]
     (fn [v] (double (+ (* (- v fmin) r) tmin)))))
 
+(defn scale [v vmax rmax]
+  (* v (/ rmax vmax)))
+
 (defn bound [lo hi]
   (fn [v]
     (if (< lo v hi) v (if (< lo v) hi lo))))
