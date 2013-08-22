@@ -46,10 +46,14 @@
 (defonce ^Controller connection (connect))
 
 (defn leap [_]
-  (let [hands         (-> connection .frame .hands) 
+  (let [connection?   (.isConnected connection)
+        hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
-    (when (pos? (.count hands)) (->hand (.leftmost hands))))
-  #_{:quality 4
+    (assoc
+      (when (pos? (.count hands)) (->hand (.leftmost hands)))
+      :connection connection?))
+  {:connection true
+   :quality 3
    :pitch 0.30
    :yaw 0.20
    :roll 0.0})
