@@ -118,7 +118,11 @@
 (defn emergency []
   (send-at "AT*REF" [8 18 20 22 24 28]))
 
-(def foo (atom false))
+(defn send-pcmd [pitch roll yaw alt]
+  (send-at "AT*PCMD" [1 pitch roll alt yaw]))
+
+(defn send-hover []
+  (send-at "AT*PCMD" [0 0.0 0.0 0.0 0.0]))
 
 #_(do
   (trim)
@@ -279,7 +283,7 @@
    :pitch            (-> (get-float ba (+ offset 12)) (/ -1000.0) deg->rad)
    :roll             (-> (get-float ba (+ offset 16)) (/ 1000.0) deg->rad)
    :yaw              (-> (get-float ba (+ offset 20)) (/ 1000.0) deg->rad)
-   :altitude         (double (get-int ba (+ offset 24)))
+   :alt              (double (get-int ba (+ offset 24)))
    :vel-x            (get-float ba (+ offset 28))
    :vel-y            (get-float ba (+ offset 32))
    :vel-z            (get-float ba (+ offset 26))
