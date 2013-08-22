@@ -1,9 +1,36 @@
 (ns sormilla.main
-  (:require [sormilla.gui :as gui]
+  (:require [sormilla.system :refer [task] :as system]
             [sormilla.leap :as leap]
-            [sormilla.core :as core]))
+            [sormilla.drone :as drone]
+            [sormilla.swing :as swing]
+            [sormilla.gui :as gui]))
 
 (defn -main [& args]
   (println "starting...")
-  (gui/make-frame leap/frame core/render :exit-on-close true)
-  (println "running..."))
+  (drone/init)
+  (task 40 drone/upstream)
+  (task 50 leap/leap)
+  (let [f (swing/make-frame
+            gui/render
+            :exit-on-close true
+            :max-size true)]
+    (println "running. press any key to exit...")
+    (.read (System/in))
+    (println "closing...")
+    (system/shutdown!)))
+
+"application ready"
+
+(comment
+  (drone/init)
+  (task 100 drone/upstream)
+  (task 100 drone/telemetry)
+  (task 50 leap/leap)
+  (def f (swing/make-frame
+           #'gui/render
+           :safe true
+           :top true))
+  (swing/close! f)
+  (system/shutdown!)
+  (reset! system/status {:run true})
+)
