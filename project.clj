@@ -1,7 +1,6 @@
-(defproject sormilla "0.1.1-SNAPSHOT"
+(defproject sormilla "0.2.0"
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [amalloy/ring-buffer "1.0"]
-                 [ardrone/ardrone "0.1.0-SNAPSHOT" :exclusions [org.clojure/clojure]]]
+                 [amalloy/ring-buffer "1.0"]]
   :profiles {:dev {:dependencies [[midje "1.5.1"]]
                    :plugins [[lein-midje "3.1.1"]]}}
   :resource-paths ["./LeapSDK/lib/LeapJava.jar"]
