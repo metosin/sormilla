@@ -94,17 +94,19 @@
           (.drawLine g 0 -2000 0 2000))))
     
     ; draw telemetry
-    (when-let [telemetry (:telemetry s)]
-      (let [pitch  (:pitch telemetry)
-            yaw    (:yaw telemetry)
-            roll   (:roll telemetry)
-            alt    (math/scale (:alt telemetry) 3000.0 h)]
+    #_(let [{:keys [connection pitch yaw roll altitude vel-x vel-y vel-z control-state battery-percent]} (:telemetry s)]
+      (when connection
         (with-transforms g
           (.setColor g telemetry-color)
-          (.translate g (+ w2 yaw) (+ h2 pitch))
+          (.drawString g (str control-state) 10 20)
+          (.drawString g (str "bat: " battery-percent "%") 10 40)
+          (.drawString g (format "yaw: %5.1f pitch: %5.1f roll: %5.1f alt: %8.3f" yaw pitch roll altitude) 10 60)
+          (.drawString g (format "x: %5.1f y: %5.1f z: %5.1f" vel-x vel-y vel-z) 10 80)
+          (.translate g w2 (+ h2 (* h2 (/ pitch (/ Math/PI 4.0)))))
           (.rotate g roll)
           (swing/draw-circle g w6 0 20)
           (swing/draw-circle g (- w6) 0 20)
           (.drawLine g w6 0 (- w6) 0))
-        (.setColor g alt-color)
-        (.fillRect g (- w 20) (- h alt) 20 alt)))))
+        (let [alt-box (* h (/ altitude 3000.0))]
+          (.setColor g alt-color)
+          (.fillRect g (- w 40) (- h alt-box) 40 alt-box))))))

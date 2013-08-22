@@ -7,6 +7,7 @@
 
 (defn -main [& args]
   (println "starting...")
+  (drone/init)
   (task 40 drone/upstream)
   (task 50 leap/leap)
   (let [f (swing/make-frame
@@ -21,8 +22,9 @@
 "application ready"
 
 (comment
-  (task 50 drone/upstream)
-  (task 50 drone/telemetry)
+  (drone/init)
+  (task 100 drone/upstream)
+  (task 100 drone/telemetry)
   (task 50 leap/leap)
   (def f (swing/make-frame
            #'gui/render
@@ -30,4 +32,5 @@
            :top true))
   (swing/close! f)
   (system/shutdown!)
+  (reset! system/status {:run true})
 )

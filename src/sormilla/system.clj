@@ -14,8 +14,12 @@
   `(future
      (while (run?)
        (try
-         (swap! status assoc ~(keyword (name f)) (~f @status))
-         (Thread/sleep ~interval)
+         (let [start# (System/nanoTime)
+               result# (~f @status)
+               time-left# (- ~interval (long (/ (- (System/nanoTime) start#) 1000 1000)))]
+           (swap! status assoc ~(keyword (name f)) result#)
+           (when (pos? time-left#)
+             (Thread/sleep time-left#)))
          (catch Throwable e#
            (println "task failure:" ~(name f))
            (.printStackTrace e#)

@@ -19,7 +19,7 @@
              (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
              (math/averager 10)
              (math/clip-to-zero 0.15)
-             (fn [v] (- v 0.1))))
+             #_(fn [v] (- v 0.1))))
 
 (def yaw (comp
            (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
