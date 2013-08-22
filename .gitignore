@@ -13,6 +13,6 @@ pom.xml.asc
 .classpath
 .settings
 .project
-leapsdk
 log.data
+LeapSDK
 
