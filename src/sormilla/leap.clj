@@ -1,6 +1,6 @@
 (ns sormilla.leap
-  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable])
-  (:require [sormilla.math :refer [avg]]))
+  (:require [sormilla.math :as math])
+  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable]))
 
 (set! *warn-on-reflection* true)
 
@@ -15,37 +15,45 @@
   (when finger
     (.direction finger)))
 
+(def pitch (comp
+             (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
+             (math/averager 10)
+             (math/clip-to-zero 0.15)
+             #_(fn [v] (- v 0.1))))
+
+(def yaw (comp
+           (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
+           (math/averager 10)
+           (math/clip-to-zero 0.15)))
+
+(def roll (comp
+            -
+            (math/averager 10)
+            (math/clip-to-zero 0.15)))
+
 (defn ->hand [^Hand hand]
   (let [fingers  (.fingers hand)
         aim      (-> fingers middle-finger direction)]
     (when aim
       {:quality       (.count fingers)
-       :pitch         (-> aim .pitch double)
-       :yaw           (-> aim .yaw double)
-       :roll          (-> hand .palmNormal .roll double)})))
+       :pitch         (-> aim .pitch pitch)
+       :yaw           (-> aim .yaw yaw)
+       :roll          (-> hand .palmNormal .roll roll)})))
 
 (defn connect ^Controller []
   (Controller.))
 
 (defonce ^Controller connection (connect))
 
-(defn frame []
-  (let [hands         (-> connection .frame .hands) 
+(defn leap [_]
+  (let [connection?   (.isConnected connection)
+        hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
-    [(when (> hand-count 1) (->hand (.leftmost hands)))
-     (when (> hand-count 0) (->hand (.rightmost hands)))]))
-
-(comment
-  
-  (:right (frame))
-  
-  (require '[clojure.pprint :refer [pprint]])
-  
-  (dotimes [n 500]
-    (Thread/sleep 100)
-    (when-let [hand (:right (frame))]
-      (let [[quality pitch yaw roll] ((juxt :quality :pitch :yaw :roll) hand)]
-        (printf "%3d: %15.3f %15.3f %15.3f\n" quality pitch yaw roll)
-        (flush))))
-
-)
+    (assoc
+      (when (pos? (.count hands)) (->hand (.leftmost hands)))
+      :connection connection?))
+  {:connection true
+   :quality 3
+   :pitch 0.30
+   :yaw 0.20
+   :roll 0.0})
