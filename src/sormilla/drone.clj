@@ -34,10 +34,11 @@
 (.flush log-file)
 
 (defn telemetry [_]
-  (let [data (comm/get-nav-data)]
+  #_(let [data (comm/get-nav-data)]
     (when @comm/foo (log data))
     data)
-  #_{:pitch 0.0
+  {:connection true
+   :pitch 0.0
    :yaw 0.0
    :roll 0.0
    :altitude 758.0
