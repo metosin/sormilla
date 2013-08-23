@@ -18,7 +18,8 @@
     (println "running. press any key to exit...")
     (.read (System/in))
     (println "closing...")
-    (system/shutdown!)))
+    (system/shutdown!)
+    (System/exit 0)))
 
 "application ready"
 

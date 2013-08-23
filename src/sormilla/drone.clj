@@ -22,8 +22,7 @@
   #_(let [data (comm/get-nav-data)]
     (when @comm/foo (log data))
     data)
-  {:connection true
-   :pitch 0.0
+  {:pitch 0.0
    :yaw 0.0
    :roll 0.0
    :alt 758.0

@@ -66,48 +66,44 @@
     (.drawLine g 0 h2 w h2)
     (doseq [x (range (/ w 50) w (/ w 50))] (.drawLine g x (- h2 5) x (+ h2 5)))
     (doseq [y (range (/ h 50) h (/ h 50))] (.drawLine g (- w2 5) y (+ w2 5) y))
-    
-    
 
     ; draw "aim"
-    (let [leap (:leap s)]
-      (when (:connection leap)
-        ; draw quality boxes
-        (let [quality (get-in s [:leap :quality] 0)]
-          (.setColor g (nth quality-colors quality))
-          (doseq [y (range 5)]
-            (when (>= y quality) (.setColor g hud-lo-color))
-            (.fillRect g 5 (- h (* y 10) 10) 30 5)))
-        (let [pitch  (* (:pitch leap) (/ h2 100.0) -1.0)
-              yaw    (* (:yaw leap) (/ w2 100.0))
-              roll   (:roll leap)
-              aim-w  (/ w 2.0)
-              aim-h  (/ h 10.0)
-              aim-x  (/ aim-w -2.0)
-              aim-y  (/ aim-h -2.0)]
-          (with-transforms g
-            (.translate g (+ w2 yaw) (+ h2 pitch))
-            (.rotate g roll)
-            (.setColor g leap-color)
-            (.fillOval g aim-x aim-y aim-w aim-h)
-            (.drawOval g aim-x aim-y aim-w aim-h)
-            (.drawLine g -2000 0 2000 0)
-            (.drawLine g 0 -2000 0 2000)))))
+    (when-let [leap (:leap s)]
+      ; draw quality boxes
+      (let [quality (get-in s [:leap :quality] 0)]
+        (.setColor g (nth quality-colors quality))
+        (doseq [y (range 5)]
+          (when (>= y quality) (.setColor g hud-lo-color))
+          (.fillRect g 5 (- h (* y 10) 10) 30 5)))
+      (let [pitch  (* (:pitch leap) (/ h2 100.0) -1.0)
+            yaw    (* (:yaw leap) (/ w2 100.0))
+            roll   (:roll leap)
+            aim-w  (/ w 2.0)
+            aim-h  (/ h 10.0)
+            aim-x  (/ aim-w -2.0)
+            aim-y  (/ aim-h -2.0)]
+        (with-transforms g
+          (.translate g (+ w2 yaw) (+ h2 pitch))
+          (.rotate g roll)
+          (.setColor g leap-color)
+          (.fillOval g aim-x aim-y aim-w aim-h)
+          (.drawOval g aim-x aim-y aim-w aim-h)
+          (.drawLine g -2000 0 2000 0)
+          (.drawLine g 0 -2000 0 2000))))
     
     ; draw telemetry
-    (let [{:keys [connection pitch yaw roll alt vel-x vel-y vel-z control-state battery-percent]} (:telemetry s)]
-      (when connection
-        (with-transforms g
-          (.setColor g telemetry-color)
-          (.drawString g (str control-state) 10 20)
-          (.drawString g (str "bat: " battery-percent "%") 10 40)
-          (.drawString g (format "yaw: %5.1f pitch: %5.1f roll: %5.1f alt: %8.3f" yaw pitch roll alt) 10 60)
-          (.drawString g (format "x: %5.1f y: %5.1f z: %5.1f" vel-x vel-y vel-z) 10 80)
-          (.translate g w2 (+ h2 (* h2 (/ pitch (/ Math/PI 4.0)))))
-          (.rotate g roll)
-          (swing/draw-circle g w6 0 20)
-          (swing/draw-circle g (- w6) 0 20)
-          (.drawLine g w6 0 (- w6) 0))
-        (let [alt-box (* h (/ alt 3000.0))]
-          (.setColor g alt-color)
-          (.fillRect g (- w 40) (- h alt-box) 40 alt-box))))))
+    (when-let [{:keys [pitch yaw roll alt vel-x vel-y vel-z control-state battery-percent]} (:telemetry s)]
+      (with-transforms g
+        (.setColor g telemetry-color)
+        (.drawString g (str control-state) 10 20)
+        (.drawString g (str "bat: " battery-percent "%") 10 40)
+        (.drawString g (format "yaw: %5.1f pitch: %5.1f roll: %5.1f alt: %8.3f" yaw pitch roll alt) 10 60)
+        (.drawString g (format "x: %5.1f y: %5.1f z: %5.1f" vel-x vel-y vel-z) 10 80)
+        (.translate g w2 (+ h2 (* h2 (/ pitch (/ Math/PI 4.0)))))
+        (.rotate g roll)
+        (swing/draw-circle g w6 0 20)
+        (swing/draw-circle g (- w6) 0 20)
+        (.drawLine g w6 0 (- w6) 0))
+      (let [alt-box (* h (/ alt 3000.0))]
+        (.setColor g alt-color)
+        (.fillRect g (- w 40) (- h alt-box) 40 alt-box)))))

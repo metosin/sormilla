@@ -328,6 +328,6 @@
       (doto nav-socket
         (.send trigger)
         (.receive packet))
-      (assoc (parse-navdata (.getData packet)) :connection true))
+      (parse-navdata (.getData packet)))
     (catch java.net.SocketTimeoutException e
-      {:connection false})))
+      nil)))
