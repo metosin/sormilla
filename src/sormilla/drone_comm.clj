@@ -76,21 +76,6 @@
 (defn send-hover []
   (send-at "AT*PCMD" [0 0.0 0.0 0.0 0.0]))
 
-#_(do
-  (trim)
-  (println "prepare....")
-  (Thread/sleep 5000)
-  (println "takeoff")
-  (takeoff)
-  (Thread/sleep 8000)
-  (println "land")
-  (land)
-  (Thread/sleep 8000)
-  (println "emerg")
-  (emergency)
-  (Thread/sleep 1000)
-  (println "bye"))
-
 ;;
 ;; Dump:
 ;;
@@ -255,19 +240,15 @@
       new-options
       (parse-options ba next-offset new-options))))
 
-(defn parse-navdata [navdata-bytes]
-  (let [header       (get-int navdata-bytes 0)
-        state        (get-int navdata-bytes 4)
-        seqnum       (get-int navdata-bytes 8)
-        vision-flag  (= (get-int navdata-bytes 12) 1)
-        pstate       (parse-nav-state state)
-        options      (parse-options navdata-bytes 16 {})]
-    (merge
-      {:header header
-       :seq-num seqnum
-       :vision-flag vision-flag}
-      pstate
-      options)))
+
+(defn parse-navdata [navdata]
+  (when @navdata-logging? (log navdata))
+  (merge
+    {:header   (get-int navdata 0)
+     :seq-num  (get-int navdata 8)
+     :vision   (= (get-int navdata 12) 1)}
+    (parse-nav-state (get-int navdata 4))
+    (parse-options navdata 16 {})))
 
 (defonce ^DatagramSocket nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
 (def trigger (DatagramPacket. (byte-array (map ubyte [0x01 0x00 0x00 0x00])) 4 drone-ip 5554))
@@ -278,6 +259,40 @@
       (doto nav-socket
         (.send trigger)
         (.receive packet))
-      (parse-navdata (.getData packet)))
+      (let [navdata (.getData packet)
+            navdata-len (.getLength packet)]
+        (log navdata navdata-len)
+        (parse-navdata navdata)))
     (catch java.net.SocketTimeoutException e
       nil)))
+
+;;
+;; Testing:
+;;
+
+(comment
+
+(do
+  (println "prepare....")
+  (Thread/sleep 5000)
+  (println "go!....")
+  (navdata-logging! true)
+  (Thread/sleep 500)
+  (enable-navdata)
+  (ctrl-ack)
+  (trim)
+  (Thread/sleep 500)
+  (println "takeoff")
+  (takeoff)
+  (Thread/sleep 8000)
+  (println "landing")
+  (land)
+  (Thread/sleep 4000)
+  (println "emerg")
+  (emergency)
+  (Thread/sleep 500)
+  (println "bye")
+  (navdata-logging! false))
+
+)
+
