@@ -45,7 +45,7 @@
     ; clear background
     (.setColor g background-color)
     (.fillRect g 0 0 w h)
-
+    
     (when (= (:control-state telemetry) :emergency)
       (.setColor g (if (< (mod (System/currentTimeMillis) 400) 200) (Color. 128 16 16) (Color. 192 16 16)))
       (.fillRect g 0 0 w h))
