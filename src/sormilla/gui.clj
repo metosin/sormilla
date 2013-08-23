@@ -14,6 +14,8 @@
 (def key-color            (Color.   64  128  64    32))
 (def telemetry-color      (Color.  255   32  32   192))
 (def alt-color            (Color.  255   32  32    64))
+(def status-hi-color      (Color.  255   32 255   255))
+(def status-lo-color      (Color.  128   32 128   255))
 
 (def quality-colors [(Color.  255   64  64   192)
                      (Color.  255   64  64   192)
@@ -22,18 +24,13 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(defn key->status! [code id]
-  (swing/add-key-listener! {:type :pressed :code code} (fn [_] (swap! status assoc-in [:keys id] true)))
-  (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys id] false))))
-
-(key->status! 37 :left)
-(key->status! 38 :up)
-(key->status! 39 :right)
-(key->status! 40 :down)
-(key->status! 32 :space)
+(doseq [[code key-name] (partition 2 swing/key-codes)]
+  (swing/add-key-listener! {:type :pressed :code code} (fn [_] (swap! status assoc-in [:keys key-name] true)))
+  (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys key-name] false))))
 
 (defn render [^Graphics2D g ^long w ^long h]
-  (let [{:keys [leap telemetry keys]} @status
+  (let [{:keys [leap telemetry keys intent]} @status
+        now    (System/currentTimeMillis)
         w2     (/ w 2.0)
         w6     (/ w 6.0)
         h2     (/ h 2.0)
@@ -45,12 +42,23 @@
     ; clear background
     (.setColor g background-color)
     (.fillRect g 0 0 w h)
-    
+
+    ; emergency background    
     (when (= (:control-state telemetry) :emergency)
       (.setColor g (if (< (mod (System/currentTimeMillis) 400) 200) (Color. 128 16 16) (Color. 192 16 16)))
       (.fillRect g 0 0 w h))
 
     ; status
+    (let [{:keys [control-state battery-percent]} telemetry
+          {:keys [intent-state]} intent]
+      (.setColor g status-lo-color)
+      (.drawString g (str "trgt: " (name (or intent-state :init))) 10 20)
+      (.setColor g (if (= control-state intent-state) status-lo-color status-hi-color))
+      (.drawString g (str "stat: " (name control-state)) 10 35)
+      (.setColor g status-lo-color)
+      (.drawString g (str " bat: " battery-percent "%") 10 50))
+
+    ; keys:
     (.setColor g key-color)
     (let [{:keys [left right up down space]} keys]
       (when left   (.fill g (swing/->shape w6 h2 (* 2 w6) (* 2 h6) (* 2 w6) (* 4 h6))))
@@ -96,13 +104,9 @@
           (.drawLine g 0 -2000 0 2000))))
     
     ; draw telemetry
-    (when-let [{:keys [pitch yaw roll alt vel-x vel-y vel-z control-state battery-percent]} telemetry]
+    (when-let [{:keys [pitch roll alt]} telemetry]
       (with-transforms g
         (.setColor g telemetry-color)
-        (.drawString g (str (name control-state)) 10 20)
-        (.drawString g (str "bat: " battery-percent "%") 10 40)
-        (.drawString g (format "yaw: %5.1f pitch: %5.1f roll: %5.1f alt: %8.3f" yaw pitch roll alt) 10 60)
-        (.drawString g (format "x: %5.1f y: %5.1f z: %5.1f" vel-x vel-y vel-z) 10 80)
         (.translate g w2 (+ h2 (* h2 (/ pitch (/ Math/PI 4.0)))))
         (.rotate g roll)
         (swing/draw-circle g w6 0 20)

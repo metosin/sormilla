@@ -1,6 +1,6 @@
 (ns sormilla.drone-comm
   (:require [sormilla.bin :refer :all]
-            [sormilla.navdata-logging :refer [log]]
+            [sormilla.navdata-logging :refer [log] :as logging]
             [clojure.string :as s])
   (:import [java.net InetAddress DatagramPacket DatagramSocket]))
 
@@ -206,9 +206,6 @@
     {:targets-num  targets-num
      :targets      (vec (map (partial parse-target-tag ba (+ offset 8)) (range targets-num)))}))
 
-(defn parse-control-state [ba offset]
-  (control-states (bit-shift-right (get-int ba offset) 16)))
-
 (defn deg->rad [v]
   (-> v (/ 180.0) (* Math/PI)))
 
@@ -242,7 +239,6 @@
 
 
 (defn parse-navdata [navdata]
-  (when @navdata-logging? (log navdata))
   (merge
     {:header   (get-int navdata 0)
      :seq-num  (get-int navdata 8)
@@ -259,10 +255,7 @@
       (doto nav-socket
         (.send trigger)
         (.receive packet))
-      (let [navdata (.getData packet)
-            navdata-len (.getLength packet)]
-        (log navdata navdata-len)
-        (parse-navdata navdata)))
+      (-> (.getData packet) log parse-navdata))
     (catch java.net.SocketTimeoutException e
       nil)))
 
@@ -276,7 +269,7 @@
   (println "prepare....")
   (Thread/sleep 5000)
   (println "go!....")
-  (navdata-logging! true)
+  (logging/navdata-logging! true)
   (Thread/sleep 500)
   (enable-navdata)
   (ctrl-ack)
@@ -292,7 +285,26 @@
   (emergency)
   (Thread/sleep 500)
   (println "bye")
-  (navdata-logging! false))
+  (logging/navdata-logging! false))
+
+(require '[clojure.java.io :as io])
+(require '[clojure.string :as s])
+
+(defn line->navdata [line]
+  (let [[timestamp & data] (s/split line #" ")]
+    (when (and timestamp data)
+      [(Long/valueOf timestamp 16)
+       (parse-navdata (byte-array (map (fn [v] (ubyte (Integer/valueOf v 16))) data)))])))
+
+(defn state-changes [states [timestamp {new-state :control-state}]]
+  (if (= new-state (second (first states)))
+    states
+    (cons [timestamp new-state] states)))
+
+(def states (with-open [i (io/reader (io/file "navdata.log"))]
+              (reverse (reduce state-changes [] (map line->navdata (line-seq i))))))
+
+states
 
 )
 
