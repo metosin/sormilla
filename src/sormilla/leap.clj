@@ -46,7 +46,7 @@
 (defonce ^Controller connection (connect))
 
 (defn leap [_]
-  (let [connection?   (.isConnected connection)
+  #_(let [connection?   (.isConnected connection)
         hands         (-> connection .frame .hands) 
         hand-count    (.count hands)]
     (assoc

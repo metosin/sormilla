@@ -8,16 +8,6 @@
 ;; packing and unpacking data from buffers:
 ;;
 
-(defn f->i ^long [^double v]
-  (let [b (java.nio.ByteBuffer/allocate 4)]
-    (.put (.asFloatBuffer b) 0 v)
-    (.get (.asIntBuffer b) 0)))
-
-(defn i->f ^double [^long v]
-  (let [b (java.nio.ByteBuffer/allocate 4)]
-    (.put (.asIntBuffer b) 0 (uint v))
-    (.get (.asFloatBuffer b) 0)))
-
 (defn ubyte ^Byte [v]
   (if (>= v 0x80)
     (byte (- v 0x100))
@@ -27,6 +17,16 @@
   (if (>= v 0x80000000)
     (int (- v 0x100000000))
     (int v)))
+
+(defn f->i ^long [^double v]
+  (let [b (java.nio.ByteBuffer/allocate 4)]
+    (.put (.asFloatBuffer b) 0 v)
+    (.get (.asIntBuffer b) 0)))
+
+(defn i->f ^double [^long v]
+  (let [b (java.nio.ByteBuffer/allocate 4)]
+    (.put (.asIntBuffer b) 0 (uint v))
+    (.get (.asFloatBuffer b) 0)))
 
 (defn i->ba [v]
   (let [buffer (java.nio.ByteBuffer/allocate 4)]
