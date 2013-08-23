@@ -128,7 +128,6 @@
   (trim)
   (println "prepare....")
   (Thread/sleep 5000)
-  (reset! foo true)
   (println "takeoff")
   (takeoff)
   (Thread/sleep 8000)
@@ -138,7 +137,6 @@
   (println "emerg")
   (emergency)
   (Thread/sleep 1000)
-  (reset! foo false)
   (println "bye"))
 
 ;;

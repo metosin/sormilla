@@ -7,21 +7,11 @@
   (comm/ctrl-ack))
 
 (defn upstream [s]
+  ; here...
   )
 
-(require '[clojure.java.io :as io])
-(def log-file (io/writer (io/file "./log.data")))
-
-(defn log [data]
-  (.write log-file (str (select-keys data [:pitch :yaw :roll :altitude :vel-x :vel-y :vel-z :control-state])))
-  (.write log-file "\n"))
-
-(.flush log-file)
-
 (defn telemetry [_]
-  #_(let [data (comm/get-nav-data)]
-    (when @comm/foo (log data))
-    data)
+  #_(comm/get-nav-data)
   {:pitch 0.0
    :yaw 0.0
    :roll 0.0
