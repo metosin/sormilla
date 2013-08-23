@@ -33,7 +33,7 @@
 (key->status! 32 :space)
 
 (defn render [^Graphics2D g ^long w ^long h]
-  (let [s      @status
+  (let [{:keys [leap telemetry keys]} @status
         w2     (/ w 2.0)
         w6     (/ w 6.0)
         h2     (/ h 2.0)
@@ -48,7 +48,7 @@
 
     ; status
     (.setColor g key-color)
-    (let [{:keys [left right up down space]} (:keys s)]
+    (let [{:keys [left right up down space]} keys]
       (when left   (.fill g (swing/->shape w6 h2 (* 2 w6) (* 2 h6) (* 2 w6) (* 4 h6))))
       (when right  (.fill g (swing/->shape (* 5 w6) h2 (* 4 w6) (* 2 h6) (* 4 w6) (* 4 h6))))
       (when up     (.fill g (swing/->shape w2 h6 (* 4 w6) (* 2 h6) (* 2 w6) (* 2 h6))))
@@ -68,9 +68,9 @@
     (doseq [y (range (/ h 50) h (/ h 50))] (.drawLine g (- w2 5) y (+ w2 5) y))
 
     ; draw "aim"
-    (when-let [leap (:leap s)]
+    (when leap
       ; draw quality boxes
-      (let [quality (get-in s [:leap :quality] 0)]
+      (let [quality (:quality leap)]
         (.setColor g (nth quality-colors quality))
         (doseq [y (range 5)]
           (when (>= y quality) (.setColor g hud-lo-color))
@@ -92,10 +92,10 @@
           (.drawLine g 0 -2000 0 2000))))
     
     ; draw telemetry
-    (when-let [{:keys [pitch yaw roll alt vel-x vel-y vel-z control-state battery-percent]} (:telemetry s)]
+    (when-let [{:keys [pitch yaw roll alt vel-x vel-y vel-z control-state battery-percent]} telemetry]
       (with-transforms g
         (.setColor g telemetry-color)
-        (.drawString g (str control-state) 10 20)
+        (.drawString g (str (name control-state)) 10 20)
         (.drawString g (str "bat: " battery-percent "%") 10 40)
         (.drawString g (format "yaw: %5.1f pitch: %5.1f roll: %5.1f alt: %8.3f" yaw pitch roll alt) 10 60)
         (.drawString g (format "x: %5.1f y: %5.1f z: %5.1f" vel-x vel-y vel-z) 10 80)
