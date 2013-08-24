@@ -7,96 +7,73 @@
 (set! *warn-on-reflection* true)
 
 ;;
+;; Drone commands:
+;;
+
+(def leds-reset      [:led 10 0.1 0])
+(def leds-active     [:led 0 5.0 0])
+(def trim            [:trim])
+(def takeoff         [:ref 9 18 20 22 24 28])
+(def land            [:ref 18 20 22 24 28])
+(def enable-navdata  [:config "general:navdata_demo" "FALSE"])
+(def ctrl-ack        [:ctrl 0])
+(def emergency       [:ref 8 18 20 22 24 28])
+(def hover           [:pcmd 0 0.0 0.0 0.0 0.0])
+(def comm-reset      [:comwdg])
+
+(defn move [pitch roll yaw alt] [:pcmd 1 pitch roll alt yaw])
+
+;;
 ;; AT commands:
 ;;
 
-(def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))
+(def at-command {:led     "AT*LED"
+                 :trim    "AT*FTRIM"
+                 :comwdg  "AT*COMWDG"
+                 :ref     "AT*REF"
+                 :config  "AT*CONFIG"
+                 :ctrl    "AT*CTRL"
+                 :pcmd    "AT*PCMD"})
 
-(defonce command-id (atom 0))
-(defonce at-socket (agent (doto (DatagramSocket.) (.setSoTimeout 1000))))
-
-(defmulti a->s type)
+(defmulti  a->s type)
 (defmethod a->s String [v] (str \" v \"))
 (defmethod a->s Double [v] (str (f->i v)))
 (defmethod a->s Long [v] (str v))
-(defmethod a->s clojure.lang.PersistentVector [v] (reduce (fn [v b] (bit-or v (bit-shift-left 1 b))) 0 v))
+(defmethod a->s clojure.lang.PersistentVector [v] (str (reduce (fn [v b] (bit-or v (bit-shift-left 1 b))) 0 v)))
 
-(defn- make-at-command ^String [command id args]
-  (str command \= id
-    (when (seq args)
-      (str \, (s/join \, (map a->s args))))
+(def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))
+(defonce at-socket (agent (doto (DatagramSocket.) (.setSoTimeout 1000))))
+(defonce command-id (atom 0))
+
+(defn next-command-id [prev-id command]
+  (inc (if (= command :comwdg) 0 prev-id)))
+
+(defn make-at-command [[command & args]]
+  (str
+    (at-command command)
+    \=
+    (swap! command-id next-command-id command)
+    (when (seq args) (str \, (s/join \, (map a->s args))))
     \return))
 
-(defn- send-message [^DatagramSocket s command args]
-  (let [id (swap! command-id inc)
-        buffer (.getBytes (make-at-command command id args))
-        packet (DatagramPacket. buffer (count buffer) drone-ip 5556)]
-    (try
-      (.send s packet)
-      (catch Exception e
-        (println "error in send:" e)
-        (.printStackTrace e)))
-    s))
+(defn make-at-commands ^String [commands]
+  (s/join (map make-at-command commands)))
 
-(defn send-at [command & args]
-  (send-off at-socket send-message command args)
+(defn send-packet [^DatagramSocket s ^DatagramPacket packet]
+  (.send s packet)
+  s)
+
+(defn commands->packet [commands]
+  (let [buffer (.getBytes (make-at-commands commands))]
+    (DatagramPacket. buffer (count buffer) drone-ip 5556)))
+
+(defn send-commands! [commands]
+  (send-off at-socket send-packet (commands->packet commands))
   nil)
-
-(defn leds-reset []
-  (send-at "AT*LED" 10 (f->i 0.1) 0))
-
-(defn leds-active []
-  (send-at "AT*LED" 0 (f->i 5.0) 0))
-
-(defn trim []
-  (send-at "AT*FTRIM"))
-
-(defn comm-reset []
-  (reset! command-id 0)
-  (send-at "AT*COMWDG"))
-
-(defn takeoff []
-  (send-at "AT*REF" [9 18 20 22 24 28]))
-
-(defn land []
-  (send-at "AT*REF" [18 20 22 24 28]))
-
-(defn enable-navdata []
-  (send-at "AT*CONFIG" "general:navdata_demo" "FALSE"))
-
-(defn ctrl-ack []
-  (send-at "AT*CTRL" 0))
-
-(defn emergency []
-  (send-at "AT*REF" [8 18 20 22 24 28]))
-
-(defn send-pcmd [pitch roll yaw alt]
-  (send-at "AT*PCMD" [1 pitch roll alt yaw]))
-
-(defn send-hover []
-  (send-at "AT*PCMD" [0 0.0 0.0 0.0 0.0]))
-
-;;
-;; Dump:
-;;
-
-(defn dump [b len]
-  (loop [[d & r] b
-         c 0]
-    (when (and c (zero? (mod c 8))) (println))
-    (print (format "%02X " d))
-    (when (< c len) (recur r (inc c))))
-  (println))
 
 ;;
 ;; Nav data:
 ;;
-
-(defn get-int-by-n [ba offset n]
-  (get-int ba (+ offset (* n 4 ))))
-
-(defn get-float-by-n [ba offset n]
-  (get-float ba (+ offset (* n 4 ))))
 
 (def state-masks
   [{:state-name :flying             :mask 0   :values [:landed :flying]}
@@ -131,6 +108,12 @@
    {:state-name :adc-watchdog       :mask 29  :values [:ok :delay]}
    {:state-name :com-watchdog       :mask 30  :values [:ok :problem]}
    {:state-name :emergency          :mask 31  :values [:ok :detected]}]) 
+
+(defn get-int-by-n [ba offset n]
+  (get-int ba (+ offset (* n 4 ))))
+
+(defn get-float-by-n [ba offset n]
+  (get-float ba (+ offset (* n 4 ))))
 
 (defn parse-nav-state [state]
   (reduce

@@ -18,14 +18,21 @@
   (fn [_] (swap! system/status assoc-in [:intent :intent-state] :init)))
 
 (swing/add-key-listener! {:type :pressed :code (int \T)}
-  (fn [_] (comm/trim)))
+  (fn [_] (comm/send-commands! [comm/trim])))
+
+(swing/add-key-listener! {:type :pressed :code (int \L)}
+  (fn [_] (comm/send-commands! [comm/leds-active])))
+
+(swing/add-key-listener! {:type :released :code (int \L)}
+  (fn [_] (comm/send-commands! [comm/leds-reset])))
 
 (defn init []
-  (comm/enable-navdata)
-  (comm/ctrl-ack))
+  (comm/send-commands! [comm/comm-reset
+                        comm/trim
+                        comm/enable-navdata
+                        comm/ctrl-ack]))
 
 (defn upstream [{:keys [leap telemetry keys intent]}]
-  (-> )
   #_(let [current-state   (:control-state telemetry)
         intent-state    (:intent-state intent)]
     (if-not (= current-state intent-state)
