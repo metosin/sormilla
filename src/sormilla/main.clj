@@ -2,6 +2,7 @@
   (:require [sormilla.system :refer [task] :as system]
             [sormilla.leap :as leap]
             [sormilla.drone :as drone]
+            [sormilla.video :as video]
             [sormilla.swing :as swing]
             [sormilla.gui :as gui]))
 
