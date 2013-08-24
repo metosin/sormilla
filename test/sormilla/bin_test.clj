@@ -44,3 +44,15 @@
   (get-int (i->ba 0x77777777) 0) => 0x77777777
   (get-int (i->ba 0x88888888) 0) => 0x88888888
   (get-int (i->ba 0x88776655) 0) => 0x55667788)
+
+(facts get-short
+  (get-short (byte-array (map ubyte [0x00 0x00])) 0) => 0x0000
+  (get-short (byte-array (map ubyte [0x01 0x00])) 0) => 0x0001
+  (get-short (byte-array (map ubyte [0xFF 0x00])) 0) => 0x00FF
+  (get-short (byte-array (map ubyte [0x00 0xFF])) 0) => 0xFF00
+  (get-short (byte-array (map ubyte [0xFF 0xFF])) 0) => 0xFFFF)
+
+(facts get-byte
+  (get-byte (byte-array (map ubyte [0x00])) 0) => 0x00
+  (get-byte (byte-array (map ubyte [0x01])) 0) => 0x01
+  (get-byte (byte-array (map ubyte [0xFF])) 0) => 0xFF)

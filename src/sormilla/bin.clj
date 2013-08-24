@@ -32,15 +32,19 @@
     (.array buffer)))
 
 (defn get-int [buff offset]
-  (bit-and 0xFFFFFFFF
-    (bit-or
-      (bit-and (nth buff offset) 0xFF)
-      (bit-shift-left (bit-and (nth buff (+ offset 1)) 0xFF) 8)
-      (bit-shift-left (bit-and (nth buff (+ offset 2)) 0xFF) 16)
-      (bit-shift-left (bit-and (nth buff (+ offset 3)) 0xFF) 24))))
+  (bit-or
+    (bit-and (nth buff offset) 0xFF)
+    (bit-shift-left (bit-and (nth buff (+ offset 1)) 0xFF) 8)
+    (bit-shift-left (bit-and (nth buff (+ offset 2)) 0xFF) 16)
+    (bit-shift-left (bit-and (nth buff (+ offset 3)) 0xFF) 24)))
 
 (defn get-short [buff offset]
-  (bit-and 0xFFFF (get-int buff offset)))
+  (bit-or
+    (bit-and (nth buff offset) 0xFF)
+    (bit-shift-left (bit-and (nth buff (+ offset 1)) 0xFF) 8)))
+
+(defn get-byte [buff offset]
+  (bit-and (nth buff offset) 0xFF))
 
 (defn get-float [ba offset]
   (i->f (uint (get-int ba offset))))
