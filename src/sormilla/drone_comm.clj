@@ -21,6 +21,7 @@
 (def hover           [:pcmd 0 0.0 0.0 0.0 0.0])
 (def comm-reset      [:comwdg])
 
+(defn video-frame-rate [rate] [:config "video:codec_fps" rate])
 (defn move [pitch roll yaw alt] [:pcmd 1 roll pitch alt yaw])
 
 ;;
