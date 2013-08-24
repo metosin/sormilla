@@ -15,7 +15,7 @@
 (def trim            [:trim])
 (def takeoff         [:ref [9 18 20 22 24 28]])
 (def land            [:ref [18 20 22 24 28]])
-(def enable-navdata  [:config "general:navdata_demo" "FALSE"])
+(def enable-navdata  [:config "general:navdata_demo" false])
 (def ctrl-ack        [:ctrl 0])
 (def emergency       [:ref [8 18 20 22 24 28]])
 (def hover           [:pcmd 0 0.0 0.0 0.0 0.0])
@@ -39,6 +39,7 @@
 (defmethod a->s String [v] (str \" v \"))
 (defmethod a->s Double [v] (str (f->i v)))
 (defmethod a->s Long [v] (str v))
+(defmethod a->s Boolean [v] (if v "\"TRUE\"" "\"FALSE\""))
 (defmethod a->s clojure.lang.PersistentVector [v] (str (reduce (fn [v b] (bit-or v (bit-shift-left 1 b))) 0 v)))
 
 (def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))

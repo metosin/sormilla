@@ -8,7 +8,9 @@
   (a->s 3.14159)  => "1078530000"
   (a->s [])       => (str 0x00)
   (a->s [0])      => (str 0x01)
-  (a->s [0 3])    => (str 0x09))
+  (a->s [0 3])    => (str 0x09)
+  (a->s true)     => "\"TRUE\""
+  (a->s false)    => "\"FALSE\"")
 
 (facts "known commands"
   (a->s [18 20 22 24 28]) => "290717696"    ; land
@@ -17,8 +19,9 @@
 (facts make-at-commands
   (reset! command-id 0)
   (make-at-commands [trim])                    => "AT*FTRIM=1\r"
-  (make-at-commands [trim takeoff])            => "AT*FTRIM=2\rAT*REF=3,9,18,20,22,24,28\r"
-  (make-at-commands [trim comm-reset takeoff]) => "AT*FTRIM=4\rAT*COMWDG=1\rAT*REF=2,9,18,20,22,24,28\r")
+  (make-at-commands [trim takeoff])            => "AT*FTRIM=2\rAT*REF=3,290718208\r"
+  (make-at-commands [trim comm-reset takeoff]) => "AT*FTRIM=4\rAT*COMWDG=1\rAT*REF=2,290718208\r"
+  (make-at-commands [enable-navdata])          => "AT*CONFIG=3,\"general:navdata_demo\",\"FALSE\"\r")
 
 (facts "parse-nav-state"
   (parse-nav-state  0x00000000) => (contains {:flying :landed :emergency :ok})
