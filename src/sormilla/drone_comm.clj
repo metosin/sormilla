@@ -14,15 +14,18 @@
 (def leds-active     [:led 0 5.0 0])
 (def trim            [:trim])
 (def takeoff         [:ref [9 18 20 22 24 28]])
-(def land            [:ref [18 20 22 24 28]])
+(def land            [:ref [  18 20 22 24 28]])
+(def emergency       [:ref [8 18 20 22 24 28]])
 (def enable-navdata  [:config "general:navdata_demo" false])
 (def ctrl-ack        [:ctrl 0])
-(def emergency       [:ref [8 18 20 22 24 28]])
 (def hover           [:pcmd 0 0.0 0.0 0.0 0.0])
 (def comm-reset      [:comwdg])
 
-(defn video-frame-rate [rate] [:config "video:codec_fps" rate])
 (defn move [pitch roll yaw alt] [:pcmd 1 roll pitch alt yaw])
+
+(defn video-codec [codec] [:config "video:video_codec" ({:h264-360p 0x81 :h264-720p 0x83} codec)])
+(defn video-frame-rate [rate] [:config "video:codec_fps" rate])
+(def video-to-usb [:config "video:video_on_usb" true])
 
 ;;
 ;; AT commands:

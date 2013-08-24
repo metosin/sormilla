@@ -6,31 +6,38 @@
            [java.util Arrays]
            [java.awt RenderingHints]
            [java.awt.image BufferedImage]
-           [java.net Socket]
+           [java.net Socket InetSocketAddress]
            [javax.imageio ImageIO]
            [java.io FileOutputStream DataOutputStream File ByteArrayInputStream]
            [javax.swing JFrame JPanel]
            [java.awt FlowLayout])
-  (:require [sormilla.bin :as bin]))
+  (:require [sormilla.bin :as bin]
+            [sormilla.drone-comm :as comm]
+            [clojure.java.io :as io]))
+
+; (set! *warn-on-reflection* true)
 
 (def INBUF_SIZE 65535)
 (def inbuf-int (int-array (+ INBUF_SIZE MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE)))
 (def avpkt (doto (AVPacket.) (.av_init_packet)))
 (def codec (H264Decoder.))
-(def c (MpegEncContext/avcodec_alloc_context))
+(def context ^MpegEncContext (MpegEncContext/avcodec_alloc_context))
 (def picture (AVFrame/avcodec_alloc_frame))
 
 (if-not (zero? (bit-and (.capabilities codec) H264Decoder/CODEC_CAP_TRUNCATED))
   (throw (Exception. "need to configure CODEC_FLAG_TRUNCATED")))
-(if (< (.avcodec_open c codec) 0)
+(if (< (.avcodec_open context codec) 0)
   (throw (Exception. "Could not open codec")))
 
-(defn to-ba-int [b]
-  (doall (for [i (range 0 (count b))]
-           (aset-int inbuf-int i (bit-and 0xFF (nth b i))))))
+(defn ba->ia [^bytes source ^ints target]
+  (doseq [i (range (count source))]
+    (aset-int target i (bit-and 0xFF (nth source i))))
+  target)
 
-(defn convert! [got-picture]
-  (.avcodec_decode_video2 c picture got-picture avpkt))
+(defn convert! [context picture avpkt]
+  (let [got-picture? (int-array [0])]
+    (.avcodec_decode_video2 context picture got-picture? avpkt)
+    (not (zero? (first got-picture?)))))
 
 (defn get-image-icon [picture buffer]
   (let [w (.imageWidth picture)
@@ -40,25 +47,21 @@
     image))
 
 (defn convert-frame [b]
-  (let [got-picture (int-array [0])]
-    (to-ba-int b)
-    (set! (.size avpkt) (count b))
-    (set! (.data_base avpkt) inbuf-int)
-    (set! (.data_offset avpkt) 0)
-    (if (> (convert! got-picture) 0)
-      (if (first got-picture)
-        (let [picture (.displayPicture (.priv_data c))
-              buffer-size (* (.imageHeight picture) (.imageWidth picture))
-              buffer (int-array buffer-size)]
-          (FrameUtils/YUV2RGB picture buffer)
-          (get-image-icon picture buffer)))
-      (println "Could not decode frame"))))
+  (set! (.size avpkt) (count b))
+  (set! (.data_base avpkt) (ba->ia b inbuf-int))
+  (set! (.data_offset avpkt) 0)
+  (if (convert! context picture avpkt)
+    (let [p (.displayPicture (.priv_data context))
+          buffer-size (* (.imageHeight p) (.imageWidth p))
+          buffer (int-array buffer-size)]
+      (FrameUtils/YUV2RGB p buffer)
+      (get-image-icon p buffer))
+    (println "Could not decode frame")))
 
-(def header-size 68)
-(def video-agent (agent 0))
-(def vsocket (atom nil))
-(def frame-number (atom 0))
-(def opencv-skip-frames 20)
+(def socket (doto (Socket.)
+              (.setSoTimeout 2000)
+              (.connect (InetSocketAddress. 5555))))
+(def input (io/input-stream socket))
 
 (declare g view)
 
@@ -66,77 +69,64 @@
   (do
     (.drawImage g bi 10 10 view)))
 
-(defn init-video-stream [host]
-  (do
-    (let [vs (Socket. host 5555)]
-      (.setSoTimeout vs 5000)
-      ;wakes up the socket so that it will continue to stream data
-      (doto (.getOutputStream vs)
-        (.write (byte-array (map bin/ubyte [1 0 0 0])))
-        (.flush))
-      (reset! vsocket vs))))
+(defn init-video-stream []
+  (doto (.getOutputStream socket)
+    (.write (byte-array (map bin/ubyte [1 0 0 0])))
+    (.flush)))
 
-(doto System/err
-  (.write (byte-array (map bin/ubyte [65 66 67 10])))
-  (.flush))
-(.write (DataOutputStream. System/err) (byte-array (map byte [1 0 0 0])))
-(.flush System/err)
-(defn read-from-input [size]
-  (let [bv (byte-array size)]
-    (.read (.getInputStream @vsocket) bv)
-    bv))
+(defn read-from-input [in size]
+  (let [ba (byte-array size)
+        c (.read in ba)]
+    (when-not (= c size) (throw (Exception. (str "could not read " size " bytes, got only " c " bytes"))))
+    ba))
 
-(defn read-header []
-  (read-from-input header-size))
+(defn read-header [in]
+  (read-from-input in 68))
 
-(defn read-signature [in]
-  (String. (byte-array (map #(nth in %1) [0 1 2 3]))))
+(defn parse-signature [data]
+  (-> (StringBuilder.)
+    (.append (char (nth data 0)))
+    (.append (char (nth data 1)))
+    (.append (char (nth data 2)))
+    (.append (char (nth data 3)))
+    (.toString)))
 
-(defn get-header [in]
-  {:version              (bin/get-byte in 4)
-   :codec                (bin/get-byte in 5)
-   :header-size          (bin/get-short in 6)
-   :payload-size         (bin/get-int in 8)
-   :encoded-width        (bin/get-short in 12)
-   :encoded-height       (bin/get-short in 14)
-   :display-width        (bin/get-short in 16)
-   :display-height       (bin/get-short in 18)
-   :frame-number         (bin/get-int in 20)
-   :timestamp            (bin/get-int in 24)
-   :total-chunks         (bin/get-byte in 28)
-   :chunk-index          (bin/get-byte in 29)
-   :frame-type           (bin/get-byte in 30)
-   :control              (bin/get-byte in 31)
-   :stream-byte-pos-lw   (bin/get-int in 32)
-   :stream-bypte-pos-uw  (bin/get-int in 36)
-   :stream-id            (bin/get-short in 40)
-   :total-slices         (bin/get-byte in 42)
-   :slice-index          (bin/get-byte in 43)
-   :header1-size         (bin/get-byte in 44)
-   :header2-size         (bin/get-byte in 45)
-   :advertised-size      (bin/get-int in 48)})
-
-(defn payload-size [in]
-  (:payload-size (get-header in)))
+(defn parse-header [data]
+  {:version              (bin/get-byte   data   4)
+   :codec                (bin/get-byte   data   5)
+   :header-size          (bin/get-short  data   6)
+   :payload-size         (bin/get-int    data   8)
+   :encoded-width        (bin/get-short  data  12)
+   :encoded-height       (bin/get-short  data  14)
+   :display-width        (bin/get-short  data  16)
+   :display-height       (bin/get-short  data  18)
+   :frame-number         (bin/get-int    data  20)
+   :timestamp            (bin/get-int    data  24)
+   :total-chunks         (bin/get-byte   data  28)
+   :chunk-index          (bin/get-byte   data  29)
+   :frame-type           (bin/get-byte   data  30)
+   :control              (bin/get-byte   data  31)
+   :stream-byte-pos-lw   (bin/get-int    data  32)
+   :stream-bypte-pos-uw  (bin/get-int    data  36)
+   :stream-id            (bin/get-short  data  40)
+   :total-slices         (bin/get-byte   data  42)
+   :slice-index          (bin/get-byte   data  43)
+   :header1-size         (bin/get-byte   data  44)
+   :header2-size         (bin/get-byte   data  45)
+   :advertised-size      (bin/get-int    data  48)})
 
 (defn read-payload [size]
   (read-from-input size))
 
-(defn write-payload [video out]
-  (.write out video))
-
-(defn save-image [bi]
-  (ImageIO/write bi "png" (File. "opencvin.png")))
-
-(defn buf-to-mat [buf type]
-  (let [itype (if (= type :gray)  CvType/CV_8UC1  CvType/CV_8UC3)
-        img-b  (-> buf (.getRaster) (.getDataBuffer) (.getData))
+(defn buf-to-mat [buf image-type]
+  (let [itype (if (= image-type :gray) CvType/CV_8UC1 CvType/CV_8UC3)
+        img-b  (-> buf .getRaster .getDataBuffer .getData)
         mat (Mat. (.getHeight buf) (.getWidth buf) itype)]
     (.put mat 0 0 img-b)
     mat))
 
-(defn convert-buffer-image-to-mat [img type]
-  (let [itype (if (= type :gray) BufferedImage/TYPE_BYTE_GRAY BufferedImage/TYPE_3BYTE_BGR)
+(defn convert-buffer-image-to-mat [img image-type]
+  (let [itype (if (= image-type :gray) BufferedImage/TYPE_BYTE_GRAY BufferedImage/TYPE_3BYTE_BGR)
         w (.getWidth img)
         h (.getHeight img)
         nw (/ w 2)
@@ -147,7 +137,7 @@
       (.setRenderingHint RenderingHints/KEY_INTERPOLATION  RenderingHints/VALUE_INTERPOLATION_BILINEAR)
       (.drawImage img 0 0 nw nh 0 0 w h nil)
       (.dispose))
-    (buf-to-mat new-frame type)))
+    (buf-to-mat new-frame image-type)))
 
 (defn convert-mat-to-buffer-image [mat]
   (let [new-mat (MatOfByte.)]
@@ -161,20 +151,19 @@
   (try
     (let [buff-img (convert-frame video)]
       (def my-img buff-img)
-      (swap! frame-number inc)
       (future (update-image (process-and-return-image buff-img))))
     (catch Exception e (println (str "Error displaying frame - skipping " e)))))
 
 
-(defn read-frame [host out]
+(defn read-frame [in]
   (try
-    (let [vheader (read-header)]
-     (if (> (count vheader) -1)
-       (if (= "PaVE" (read-signature vheader))
+    (let [header-data  (read-header in)
+          signature    (parse-signature header-data)
+          header       (parse-header header-data)]
+      (if (> (count vheader) -1)
+       (if (= "PaVE" )
          (do
-           (let [vpayload (read-payload (payload-size vheader))]
-             (when out
-               (write-payload vpayload out))
+           (let [vpayload (read-payload (:payload-size header))]
              (display-frame vpayload)))
          (do (println "not a pave")))
        (do (println "disconnected")
@@ -185,6 +174,7 @@
     (catch Exception e (println (str "Problem reading frame - skipping " e)))))
 
 (def stream)
+
 (defn stream-video [_ host out]
   (while @stream (do
                    (read-frame host out)
