@@ -1,167 +1,80 @@
 (ns sormilla.drone-comm
-  (:require [clojure.string :as s])
+  (:require [sormilla.bin :refer :all]
+            [sormilla.navdata-logging :refer [log] :as logging]
+            [clojure.string :as s])
   (:import [java.net InetAddress DatagramPacket DatagramSocket]))
 
 (set! *warn-on-reflection* true)
 
 ;;
-;; packing and unpacking data from buffers:
+;; Drone commands:
 ;;
 
-(defn ubyte ^Byte [v]
-  (if (>= v 0x80)
-    (byte (- v 0x100))
-    (byte v)))
+(def leds-reset      [:led 10 0.1 0])
+(def leds-active     [:led 0 5.0 0])
+(def trim            [:trim])
+(def takeoff         [:ref [9 18 20 22 24 28]])
+(def land            [:ref [18 20 22 24 28]])
+(def enable-navdata  [:config "general:navdata_demo" false])
+(def ctrl-ack        [:ctrl 0])
+(def emergency       [:ref [8 18 20 22 24 28]])
+(def hover           [:pcmd 0 0.0 0.0 0.0 0.0])
+(def comm-reset      [:comwdg])
 
-(defn uint ^Integer [v]
-  (if (>= v 0x80000000)
-    (int (- v 0x100000000))
-    (int v)))
-
-(defn f->i ^long [^double v]
-  (let [b (java.nio.ByteBuffer/allocate 4)]
-    (.put (.asFloatBuffer b) 0 v)
-    (.get (.asIntBuffer b) 0)))
-
-(defn i->f ^double [^long v]
-  (let [b (java.nio.ByteBuffer/allocate 4)]
-    (.put (.asIntBuffer b) 0 (uint v))
-    (.get (.asFloatBuffer b) 0)))
-
-(defn i->ba [v]
-  (let [buffer (java.nio.ByteBuffer/allocate 4)]
-    (doto buffer
-      (.put (ubyte (bit-and 0xFF (bit-shift-right v 24))))
-      (.put (ubyte (bit-and 0xFF (bit-shift-right v 16))))
-      (.put (ubyte (bit-and 0xFF (bit-shift-right v 8))))
-      (.put (ubyte (bit-and 0xFF v))))
-    (.array buffer)))
-
-(defn get-int [buff offset]
-  (bit-and 0xFFFFFFFF
-    (bit-or
-      (bit-and (nth buff offset) 0xFF)
-      (bit-shift-left (bit-and (nth buff (+ offset 1)) 0xFF) 8)
-      (bit-shift-left (bit-and (nth buff (+ offset 2)) 0xFF) 16)
-      (bit-shift-left (bit-and (nth buff (+ offset 3)) 0xFF) 24))))
-
-(defn get-short [buff offset]
-  (bit-and 0xFFFF (get-int buff offset)))
-
-(defn get-float [ba offset]
-  (i->f (uint (get-int ba offset))))
-
-(defn bit-set? [value bit]
-  (not (zero? (bit-and value (bit-shift-left 1 bit)))))
+(defn move [pitch roll yaw alt] [:pcmd 1 roll pitch alt yaw])
 
 ;;
 ;; AT commands:
 ;;
 
-(def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))
+(def at-command {:led     "AT*LED"
+                 :trim    "AT*FTRIM"
+                 :comwdg  "AT*COMWDG"
+                 :ref     "AT*REF"
+                 :config  "AT*CONFIG"
+                 :ctrl    "AT*CTRL"
+                 :pcmd    "AT*PCMD"})
 
-(defonce command-id (atom 0))
-(defonce at-socket (agent (doto (DatagramSocket.) (.setSoTimeout 1000))))
-
-(defmulti a->s type)
+(defmulti  a->s type)
 (defmethod a->s String [v] (str \" v \"))
 (defmethod a->s Double [v] (str (f->i v)))
 (defmethod a->s Long [v] (str v))
-(defmethod a->s clojure.lang.PersistentVector [v] (reduce (fn [v b] (bit-or v (bit-shift-left 1 b))) 0 v))
+(defmethod a->s Boolean [v] (if v "\"TRUE\"" "\"FALSE\""))
+(defmethod a->s clojure.lang.PersistentVector [v] (str (reduce (fn [v b] (bit-or v (bit-shift-left 1 b))) 0 v)))
 
-(defn- make-at-command ^String [command id args]
-  (str command \= id
-    (when (seq args)
-      (str \, (s/join \, (map a->s args))))
+(def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))
+(defonce at-socket (agent (doto (DatagramSocket.) (.setSoTimeout 1000))))
+(defonce command-id (atom 0))
+
+(defn next-command-id [prev-id command]
+  (inc (if (= command :comwdg) 0 prev-id)))
+
+(defn make-at-command [[command & args]]
+  (str
+    (at-command command)
+    \=
+    (swap! command-id next-command-id command)
+    (when (seq args) (str \, (s/join \, (map a->s args))))
     \return))
 
-(defn- send-message [^DatagramSocket s command args]
-  (let [id (swap! command-id inc)
-        buffer (.getBytes (make-at-command command id args))
-        packet (DatagramPacket. buffer (count buffer) drone-ip 5556)]
-    (try
-      (.send s packet)
-      (catch Exception e
-        (println "error in send:" e)
-        (.printStackTrace e)))
-    s))
+(defn make-at-commands ^String [commands]
+  (s/join (map make-at-command commands)))
 
-(defn send-at [command & args]
-  (send-off at-socket send-message command args)
+(defn send-packet [^DatagramSocket s ^DatagramPacket packet]
+  (.send s packet)
+  s)
+
+(defn commands->packet [commands]
+  (let [buffer (.getBytes (make-at-commands commands))]
+    (DatagramPacket. buffer (count buffer) drone-ip 5556)))
+
+(defn send-commands! [commands]
+  (send-off at-socket send-packet (commands->packet commands))
   nil)
-
-(defn leds-reset []
-  (send-at "AT*LED" 10 (f->i 0.1) 0))
-
-(defn leds-active []
-  (send-at "AT*LED" 0 (f->i 5.0) 0))
-
-(defn trim []
-  (send-at "AT*FTRIM"))
-
-(defn comm-reset []
-  (reset! command-id 0)
-  (send-at "AT*COMWDG"))
-
-(defn takeoff []
-  (send-at "AT*REF" [9 18 20 22 24 28]))
-
-(defn land []
-  (send-at "AT*REF" [18 20 22 24 28]))
-
-(defn enable-navdata []
-  (send-at "AT*CONFIG" "general:navdata_demo" "FALSE"))
-
-(defn ctrl-ack []
-  (send-at "AT*CTRL" 0))
-
-(defn emergency []
-  (send-at "AT*REF" [8 18 20 22 24 28]))
-
-(defn send-pcmd [pitch roll yaw alt]
-  (send-at "AT*PCMD" [1 pitch roll alt yaw]))
-
-(defn send-hover []
-  (send-at "AT*PCMD" [0 0.0 0.0 0.0 0.0]))
-
-#_(do
-  (trim)
-  (println "prepare....")
-  (Thread/sleep 5000)
-  (reset! foo true)
-  (println "takeoff")
-  (takeoff)
-  (Thread/sleep 8000)
-  (println "land")
-  (land)
-  (Thread/sleep 8000)
-  (println "emerg")
-  (emergency)
-  (Thread/sleep 1000)
-  (reset! foo false)
-  (println "bye"))
-
-;;
-;; Dump:
-;;
-
-(defn dump [b len]
-  (loop [[d & r] b
-         c 0]
-    (when (and c (zero? (mod c 8))) (println))
-    (print (format "%02X " d))
-    (when (< c len) (recur r (inc c))))
-  (println))
 
 ;;
 ;; Nav data:
 ;;
-
-(defn get-int-by-n [ba offset n]
-  (get-int ba (+ offset (* n 4 ))))
-
-(defn get-float-by-n [ba offset n]
-  (get-float ba (+ offset (* n 4 ))))
 
 (def state-masks
   [{:state-name :flying             :mask 0   :values [:landed :flying]}
@@ -196,6 +109,12 @@
    {:state-name :adc-watchdog       :mask 29  :values [:ok :delay]}
    {:state-name :com-watchdog       :mask 30  :values [:ok :problem]}
    {:state-name :emergency          :mask 31  :values [:ok :detected]}]) 
+
+(defn get-int-by-n [ba offset n]
+  (get-int ba (+ offset (* n 4 ))))
+
+(defn get-float-by-n [ba offset n]
+  (get-float ba (+ offset (* n 4 ))))
 
 (defn parse-nav-state [state]
   (reduce
@@ -252,7 +171,6 @@
 
 (def option-tags [0 :NAVDATA-DEMO-TAG])
 
-
 (defn tag-type-mask [type-num]
   (bit-shift-left 1 (- type-num 1)))
 
@@ -270,9 +188,6 @@
   (let [targets-num (get-int ba (+ offset 4))]
     {:targets-num  targets-num
      :targets      (vec (map (partial parse-target-tag ba (+ offset 8)) (range targets-num)))}))
-
-(defn parse-control-state [ba offset]
-  (control-states (bit-shift-right (get-int ba offset) 16)))
 
 (defn deg->rad [v]
   (-> v (/ 180.0) (* Math/PI)))
@@ -305,19 +220,14 @@
       new-options
       (parse-options ba next-offset new-options))))
 
-(defn parse-navdata [navdata-bytes]
-  (let [header       (get-int navdata-bytes 0)
-        state        (get-int navdata-bytes 4)
-        seqnum       (get-int navdata-bytes 8)
-        vision-flag  (= (get-int navdata-bytes 12) 1)
-        pstate       (parse-nav-state state)
-        options      (parse-options navdata-bytes 16 {})]
-    (merge
-      {:header header
-       :seq-num seqnum
-       :vision-flag vision-flag}
-      pstate
-      options)))
+
+(defn parse-navdata [navdata]
+  (merge
+    {:header   (get-int navdata 0)
+     :seq-num  (get-int navdata 8)
+     :vision   (= (get-int navdata 12) 1)}
+    (parse-nav-state (get-int navdata 4))
+    (parse-options navdata 16 {})))
 
 (defonce ^DatagramSocket nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
 (def trigger (DatagramPacket. (byte-array (map ubyte [0x01 0x00 0x00 0x00])) 4 drone-ip 5554))
@@ -328,6 +238,62 @@
       (doto nav-socket
         (.send trigger)
         (.receive packet))
-      (parse-navdata (.getData packet)))
+      (-> (.getData packet) log parse-navdata))
     (catch java.net.SocketTimeoutException e
       nil)))
+
+;;
+;; Testing:
+;;
+
+(comment
+
+(do
+  (println "prepare....")
+  (Thread/sleep 5000)
+  (println "go!....")
+  (logging/navdata-logging! true)
+  (Thread/sleep 500)
+  (enable-navdata)
+  (ctrl-ack)
+  (trim)
+  (Thread/sleep 500)
+  (println "takeoff")
+  (takeoff)
+  (Thread/sleep 8000)
+  (println "landing")
+  (land)
+  (Thread/sleep 4000)
+  (println "emerg")
+  (emergency)
+  (Thread/sleep 500)
+  (println "bye")
+  (logging/navdata-logging! false))
+
+(require '[clojure.java.io :as io])
+(require '[clojure.string :as s])
+
+(defn line->navdata [line]
+  (let [[timestamp & data] (s/split line #" ")]
+    (when (and timestamp data)
+      [(Long/valueOf timestamp 16)
+       (parse-navdata (byte-array (map (fn [v] (ubyte (Integer/valueOf v 16))) data)))])))
+
+(defn state-changes [states [timestamp {new-state :control-state}]]
+  (if (= new-state (second (first states)))
+    states
+    (cons [timestamp new-state] states)))
+
+(def states (with-open [i (io/reader (io/file "navdata.log"))]
+              (reverse (reduce state-changes [] (map line->navdata (line-seq i))))))
+
+states
+
+[1377247353528 :landed]
+[1377247357171 :trans-gotofix]
+[1377247363344 :hovering]
+[1377247365165 :trans-looping]
+[1377247366075 :landed]
+
+)
+

@@ -14,6 +14,7 @@
       (apply f args)
       (catch Throwable e
         (println "error:" e)
+        (.printStackTrace e)
         (Thread/sleep throttle)
         nil))))
 
@@ -84,6 +85,17 @@
 ;;
 ;; Keys
 ;;
+
+(def key-codes [37 :left
+                38 :up
+                39 :right
+                40 :down
+                27 :esc
+                32 :space
+                10 :enter])
+
+(doseq [[key-code key-name] (partition 2 key-codes)]
+  (intern *ns* (symbol (str "key-" (name key-name))) key-code))
 
 (def key-types {KeyEvent/KEY_TYPED     :typed
                 KeyEvent/KEY_PRESSED   :pressed
