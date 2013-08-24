@@ -14,8 +14,8 @@
 (def key-color            (Color.   64  128  64    32))
 (def telemetry-color      (Color.  255   32  32   192))
 (def alt-color            (Color.  255   32  32    64))
-(def status-hi-color      (Color.  255   32 255   255))
-(def status-lo-color      (Color.  128   32 128   255))
+(def status-hi-color      (Color.  255  255   0   255))
+(def status-lo-color      (Color.  192  192   0   255))
 
 (def quality-colors [(Color.  255   64  64   192)
                      (Color.  255   64  64   192)
@@ -24,7 +24,7 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(doseq [[code key-name] (partition 2 swing/key-codes)]
+(doseq [[code key-name] (partition 2 [swing/key-left :left swing/key-right :right swing/key-up :up swing/key-down :down])]
   (swing/add-key-listener! {:type :pressed :code code} (fn [_] (swap! status assoc-in [:keys key-name] true)))
   (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys key-name] false))))
 
@@ -54,7 +54,7 @@
       (.setColor g status-lo-color)
       (.drawString g (str "trgt: " (name (or intent-state :init))) 10 20)
       (.setColor g (if (= control-state intent-state) status-lo-color status-hi-color))
-      (.drawString g (str "stat: " (name control-state)) 10 35)
+      (.drawString g (str "stat: " (name (or control-state :init))) 10 35)
       (.setColor g status-lo-color)
       (.drawString g (str " bat: " battery-percent "%") 10 50))
 
@@ -104,14 +104,15 @@
           (.drawLine g 0 -2000 0 2000))))
     
     ; draw telemetry
-    (when-let [{:keys [pitch roll alt]} telemetry]
-      (with-transforms g
-        (.setColor g telemetry-color)
-        (.translate g w2 (+ h2 (* h2 (/ pitch (/ Math/PI 4.0)))))
-        (.rotate g roll)
-        (swing/draw-circle g w6 0 20)
-        (swing/draw-circle g (- w6) 0 20)
-        (.drawLine g w6 0 (- w6) 0))
-      (let [alt-box (* h (/ alt 3000.0))]
-        (.setColor g alt-color)
-        (.fillRect g (- w 40) (- h alt-box) 40 alt-box)))))
+    (let [{:keys [pitch roll alt]} telemetry]
+      (when (and pitch roll alt)
+        (with-transforms g
+          (.setColor g telemetry-color)
+          (.translate g w2 (+ h2 (* h2 (/ pitch (/ Math/PI 4.0)))))
+          (.rotate g roll)
+          (swing/draw-circle g w6 0 20)
+          (swing/draw-circle g (- w6) 0 20)
+          (.drawLine g w6 0 (- w6) 0))
+        (let [alt-box (* h (/ alt 3000.0))]
+          (.setColor g alt-color)
+          (.fillRect g (- w 40) (- h alt-box) 40 alt-box))))))

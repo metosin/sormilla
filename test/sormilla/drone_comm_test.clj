@@ -10,6 +10,10 @@
   (a->s [0])      => (str 0x01)
   (a->s [0 3])    => (str 0x09))
 
+(facts "known commands"
+  (a->s [18 20 22 24 28]) => "290717696"    ; land
+  (a->s [8 18 20 22 24 28]) => "290717952") ; emergency stop
+
 (facts make-at-commands
   (reset! command-id 0)
   (make-at-commands [trim])                    => "AT*FTRIM=1\r"

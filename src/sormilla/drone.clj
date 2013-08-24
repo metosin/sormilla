@@ -1,11 +1,12 @@
 (ns sormilla.drone
   (:require [sormilla.drone-comm :as comm]
             [sormilla.system :refer [task] :as system]
+            [sormilla.math :as math]
             [sormilla.swing :as swing]))
 
 (defn toggle-fly [status]
-  (let [current-status (get-in status [:intent :intent-state] :land)
-        next-status    ({:init :land :land :fly :fly :land} current-status current-status)]
+  (let [current-status (get-in status [:intent :intent-state] :init)
+        next-status    ({:init :landed :landed :hovering :hovering :landed} current-status current-status)]
     (assoc-in status [:intent :intent-state] next-status)))
 
 (swing/add-key-listener! {:type :pressed :code swing/key-space}
@@ -26,32 +27,81 @@
 (swing/add-key-listener! {:type :released :code (int \L)}
   (fn [_] (comm/send-commands! [comm/leds-reset])))
 
-(defn init []
-  (comm/send-commands! [comm/comm-reset
-                        comm/trim
-                        comm/enable-navdata
-                        comm/ctrl-ack]))
+(swing/add-key-listener! {:type :pressed :code (int \I)}
+  (fn [_] (comm/send-commands! [comm/comm-reset
+                                comm/trim
+                                comm/enable-navdata
+                                comm/ctrl-ack
+                                comm/land
+                                comm/leds-active])))
 
-(defn upstream [{:keys [leap telemetry keys intent]}]
-  #_(let [current-state   (:control-state telemetry)
-        intent-state    (:intent-state intent)]
-    (if-not (= current-state intent-state)
-      ))
-  ;(send-pcmd pitch roll yaw alt)
-  )
+;                    user        drone    command:
+(def state-commands [:emergency  :any     comm/emergency
+                     :landed     :any     comm/land
+                     :hovering   :landed  comm/takeoff])
 
+(defn control-state-command [{{control-state :control-state} :telemetry {intent-state :intent-state} :intent}]
+  (some
+    (fn [[u d c]] (if (and (= u intent-state) (or (= d :any) (= d control-state))) c))
+    (partition 3 state-commands)))
+
+(def key-dir {[false false]    0
+              [false true]     1
+              [true  false]   -1
+              [true  true]     0})
+
+(defn speed [s key1 key2 keys]
+  (* s (key-dir [(key1 keys false) (key2 keys false)])))
+
+(def yaw-speed 0.2)
+(def alt-speed 0.2)
+
+(def yaw (partial speed yaw-speed :left :right))
+(def alt (partial speed alt-speed :down :up))
+
+(def pitch (comp
+             (math/bound -0.8 +0.8)
+             (math/lin-scale [-100.0 +100.0] [-0.7 +0.7])))
+
+(def roll (comp
+            (math/bound -0.8 +0.8)
+            (math/lin-scale [-0.6 +0.6] [-0.8 +0.8])))
+
+(defn roughly-zero? [v]
+  (< -1e-3 v 1e-3))
+
+(defn move-command [{:keys [keys leap]}]
+  (let [p (pitch (:pitch leap 0.0))
+        r (roll (:roll leap 0.0))
+        y (yaw keys)
+        a (alt keys)]
+    (if (every? roughly-zero? [p r y a])
+      comm/hover
+      (comm/move p r y a))))
+
+(defn upstream [status]
+  (when-let [command (or (control-state-command status) (move-command status))]
+    #_(println command)
+    (comm/send-commands! [command])))
+
+(comm/send-commands! [comm/comm-reset])
+(comm/send-commands! [comm/trim])
+(comm/send-commands! [comm/enable-navdata])
+(comm/send-commands! [comm/ctrl-ack])
+(comm/send-commands! [comm/leds-active])
+(comm/send-commands! [comm/leds-reset])
+
+(comm/send-commands! [comm/takeoff])
+(comm/send-commands! [comm/land])
+(comm/send-commands! [comm/emergency])
 (defn telemetry [_]
   (comm/get-nav-data)
-  {:pitch 0.0
+  #_{:pitch 0.0
    :yaw 0.0
    :roll 0.0
    :alt 758.0
    :vel-x 0.0
    :vel-y 0.0
    :vel-z 0.0
-   :control-state :init
+   :control-state :landed
    :battery-percent 120.0})
-
-(comment
-  
-)

@@ -13,15 +13,15 @@
 (def leds-reset      [:led 10 0.1 0])
 (def leds-active     [:led 0 5.0 0])
 (def trim            [:trim])
-(def takeoff         [:ref 9 18 20 22 24 28])
-(def land            [:ref 18 20 22 24 28])
+(def takeoff         [:ref [9 18 20 22 24 28]])
+(def land            [:ref [18 20 22 24 28]])
 (def enable-navdata  [:config "general:navdata_demo" "FALSE"])
 (def ctrl-ack        [:ctrl 0])
-(def emergency       [:ref 8 18 20 22 24 28])
+(def emergency       [:ref [8 18 20 22 24 28]])
 (def hover           [:pcmd 0 0.0 0.0 0.0 0.0])
 (def comm-reset      [:comwdg])
 
-(defn move [pitch roll yaw alt] [:pcmd 1 pitch roll alt yaw])
+(defn move [pitch roll yaw alt] [:pcmd 1 roll pitch alt yaw])
 
 ;;
 ;; AT commands:
@@ -170,7 +170,6 @@
 
 (def option-tags [0 :NAVDATA-DEMO-TAG])
 
-
 (defn tag-type-mask [type-num]
   (bit-shift-left 1 (- type-num 1)))
 
@@ -288,6 +287,12 @@
               (reverse (reduce state-changes [] (map line->navdata (line-seq i))))))
 
 states
+
+[1377247353528 :landed]
+[1377247357171 :trans-gotofix]
+[1377247363344 :hovering]
+[1377247365165 :trans-looping]
+[1377247366075 :landed]
 
 )
 

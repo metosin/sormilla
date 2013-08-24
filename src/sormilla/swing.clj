@@ -14,6 +14,7 @@
       (apply f args)
       (catch Throwable e
         (println "error:" e)
+        (.printStackTrace e)
         (Thread/sleep throttle)
         nil))))
 
