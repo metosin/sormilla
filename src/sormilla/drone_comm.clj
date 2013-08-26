@@ -25,7 +25,8 @@
 
 (defn video-codec [codec] [:config "video:video_codec" ({:h264-360p 0x81 :h264-720p 0x83} codec)])
 (defn video-frame-rate [rate] [:config "video:codec_fps" rate])
-(def video-to-usb [:config "video:video_on_usb" true])
+(def video-to-usb-on   [:config "video:video_on_usb" true])
+(def video-to-usb-off  [:config "video:video_on_usb" false])
 
 ;;
 ;; AT commands:

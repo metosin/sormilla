@@ -53,8 +53,8 @@
 (defn speed [s key1 key2 keys]
   (* s (key-dir [(key1 keys false) (key2 keys false)])))
 
-(def yaw-speed 0.2)
-(def alt-speed 0.2)
+(def yaw-speed 0.25)
+(def alt-speed 0.35)
 
 (def yaw (partial speed yaw-speed :left :right))
 (def alt (partial speed alt-speed :down :up))

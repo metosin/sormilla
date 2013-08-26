@@ -20,8 +20,9 @@
 ;; I/O
 ;;
 
-(defn read-input ^bytes [^InputStream in ^bytes buffer ^long size]
-  (IOUtils/readFully in buffer 0 size)
+(defn read-input ^bytes [^InputStream in ^bytes buffer ^Long size]
+  (.read in buffer 0 size)
+  ;(IOUtils/readFully in buffer 0 size)
   buffer)
 
 (defn skip-input [^InputStream in ^long size]
@@ -32,7 +33,7 @@
 ;; Video decoding
 ;;
 
-(defn ba->ia [^bytes source ^ints target ^long size]
+(defn ba->ia [^bytes source ^ints target ^Long size]
   (loop [i 0]
     (aset-int target i (bit-and 0xFF (aget source i)))
     (when (< (inc i) size) (recur (inc i))))
@@ -42,7 +43,7 @@
 (defn header-size [header]  (bin/get-short header 6))
 (defn payload-size [header] (bin/get-int header 8))
 
-(defn buffer->image ^BufferedImage [^long w ^long h ^ints buffer]
+(defn buffer->image ^BufferedImage [^Long w ^Long h ^ints buffer]
   (let [image (BufferedImage. w h BufferedImage/TYPE_INT_RGB)]
     (.setRGB image 0 0 w h buffer 0 w)
     image))
@@ -66,7 +67,7 @@
             header-size  (header-size header)
             image-size   (payload-size header)]
         
-        (when-not (= (signature header) 0x45566150) (throw (Exception. "out of sync")))
+        (when-not (= (signature header) 0x45566150) (throw (java.io.IOException. "out of sync")))
         (skip-input in (- header-size 12))
         (read-input in image-buffer image-size)
         
@@ -75,7 +76,7 @@
         (set! (.data_offset packet) 0)
         
         (.avcodec_decode_video2 context frame got-picture? packet)
-        (when (zero? (first got-picture?)) (throw (Exception. "Could not decode frame")))
+        (when (zero? (first got-picture?)) (throw (java.io.IOException. "Could not decode frame")))
         
         (let [picture         (.displayPicture (.priv_data context))
               width           (.imageWidth picture)
@@ -88,27 +89,70 @@
 ;; Streaming:
 ;;
 
-(defonce image (atom nil))
+(def image (atom nil))
+
+(defn open-socket ^Socket []
+  (doto (Socket.)
+    (.setSoTimeout 2000)
+    (.connect (InetSocketAddress. comm/drone-ip 5555))))
+
+(defn open-socket ^Socket []
+  (doto (Socket.)
+    (.setSoTimeout 2000)
+    (.connect (InetSocketAddress. "localhost" 5555))))
 
 (defn init-video-streaming! []
-  (comm/send-commands! [(comm/video-codec :h264-360p) (comm/video-frame-rate 15)])
-  (let [socket   (doto (Socket.)
-                   (.setSoTimeout 2000)
-                   (.connect (InetSocketAddress. comm/drone-ip 5555)))
-        decoder  (make-decoder (io/input-stream socket))]
-    (doto (.getOutputStream socket)
-      (.write (byte-array (map bin/ubyte [1 0 0 0])))
-      (.flush))
-    (future
-      (try
-        (while (run?)
-          (reset! image (decoder)))
-        (catch Exception e
-          (println "exception while processing video stream" e)
-          (.printStackTrace e))
-        (finally
-          (try (.close socket) (catch Exception e))
-          (reset! image nil))))))
+  (comm/send-commands! [comm/video-to-usb-on])
+  (comm/send-commands! [(comm/video-codec :h264-360p) #_(comm/video-frame-rate 15)])
+  (future
+    (try
+      (while (run?)          
+        (let [socket   (open-socket)   
+              decoder  (make-decoder (.getInputStream socket) #_(io/input-stream socket))]
+          (try
+            (doto (.getOutputStream socket)
+              (.write (byte-array (map bin/ubyte [1 0 0 0])))
+              (.flush))
+            (while (run?)
+              (reset! image (decoder)))
+            (catch java.io.IOException e
+              (println "I/O error:" e ": reconnecting..."))
+            (finally
+              (try (.close socket) (catch Exception _))))))
+      (catch Throwable e
+        (println "exception while processing video stream" e)
+        (.printStackTrace e)
+        (Thread/sleep 1000))
+      (finally
+        (reset! image nil)))))
+
+(defn get-date-time []
+  (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)))
+
+(defn init-video-saving! []
+  ;(comm/send-commands! [(comm/video-codec :h264-360p) #_(comm/video-frame-rate 15)])
+  (future
+    (try
+      (while (run?)
+        (let [socket   (open-socket)   
+              in       (io/input-stream socket)
+              out      (io/output-stream (io/file (str "sormilla-" (get-date-time) ".h264")))
+              buffer   (byte-array 4096)]
+          (try
+            (doto (.getOutputStream socket)
+              (.write (byte-array (map bin/ubyte [1 0 0 0])))
+              (.flush))
+            (while (run?)
+              (let [c (.read in buffer 0 4096)]
+                (.write out buffer 0 c)))
+            (catch java.io.IOException e
+              (println "I/O error:" e ": reconnecting..."))
+            (finally
+              (try (.close socket) (catch Exception e))
+              (try (.close out) (catch Exception e))))))
+      (catch Throwable e
+        (println "exception while processing video stream" e)
+        (.printStackTrace e)))))
 
 (comment
 
