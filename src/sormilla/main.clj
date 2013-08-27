@@ -5,8 +5,7 @@
             [sormilla.drone-comm :as comm]
             [sormilla.video :as video]
             [sormilla.swing :as swing]
-            [sormilla.gui :as gui]
-            [sormilla.video-gui :as video-gui]))
+            [sormilla.gui :as gui]))
 
 (defn -main [& args]
   (println "starting...")
