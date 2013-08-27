@@ -11,10 +11,10 @@
 (def hud-color            (Color.   64  192  64    92))
 (def hud-hi-color         (Color.   64  255  64   192))
 (def hud-lo-color         (Color.   64  192  64    32))
-(def leap-color           (Color.   64  255  64    64))
+(def leap-color           (Color.   64  255  64   192))
 (def key-color            (Color.   64  128  64    32))
-(def telemetry-color      (Color.  255   32  32   192))
-(def alt-color            (Color.  255   32  32    64))
+(def telemetry-color      (Color.  255   32  32   255))
+(def alt-color            (Color.  255   32  32   192))
 (def status-hi-color      (Color.  255  255   0   255))
 (def status-lo-color      (Color.  192  192   0   255))
 
@@ -40,14 +40,15 @@
     ; setup
     (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
     
-    ; clear background
-    (.setColor g background-color)
-    (.fillRect g 0 0 w h)
-
     ; video feed
     (if-let [image ^Image @video/image]
-      (.drawImage g image 0 0 nil)
       (do
+        (.drawImage g image 0 0 nil)
+        (.setColor g (Color. 0 0 0 96))
+        (.fillRect g 0 0 w h))
+      (do
+        (.setColor g background-color)
+        (.fillRect g 0 0 w h)
         (.setColor g Color/WHITE)
         (.drawString g "no image feed" 15 75)))
     

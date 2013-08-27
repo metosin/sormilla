@@ -86,9 +86,9 @@
 
 (defn telemetry [_]
   #_(comm/get-nav-data)
-  {:pitch    0.0
+  {:pitch    0.2
    :yaw      0.0
-   :roll     0.4
+   :roll     0.2
    :alt    758.0
    :vel-x    0.0
    :vel-y    0.0
