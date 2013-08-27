@@ -1,4 +1,4 @@
-(defproject sormilla "0.2.1-SNAPSHOT"
+(defproject sormilla "0.3.0"
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [rogerallen/leaplib "0.8.1"]
                  [rogerallen/leaplib-natives "0.8.1"]
