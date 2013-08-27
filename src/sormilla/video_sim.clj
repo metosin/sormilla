@@ -8,7 +8,6 @@
 (set! *warn-on-reflection* true)
 
 (def delay-between-frames 50) ; 20 fps
-(def delay-between-frames  5) ; 200 fps
 
 (defn read-buffer ^bytes [^InputStream in ^Long size]
   (let [buffer (byte-array size)]

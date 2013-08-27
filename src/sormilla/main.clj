@@ -22,16 +22,13 @@
 
 (comment
   (task 100 drone/upstream)
-  (task 60 drone/telemetry)
+  (task 100 drone/telemetry)
   (task 50 leap/leap)
+  (video/init-video-streaming!)
   (swing/make-frame #'gui/render :safe true :top true)
 
   (system/shutdown!)
   (reset! system/status {:run true})
-
-  (video/init-video-saving!)
-  (video/init-video-streaming!)
-  (swing/make-frame video-gui/render :safe true :top true)
 
   (comm/send-commands! [comm/video-to-usb-on])
   (comm/send-commands! [comm/video-to-usb-off])

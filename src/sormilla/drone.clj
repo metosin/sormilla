@@ -84,24 +84,14 @@
     #_(println command)
     (comm/send-commands! [command])))
 
-(comm/send-commands! [comm/comm-reset])
-(comm/send-commands! [comm/trim])
-(comm/send-commands! [comm/enable-navdata])
-(comm/send-commands! [comm/ctrl-ack])
-(comm/send-commands! [comm/leds-active])
-(comm/send-commands! [comm/leds-reset])
-
-(comm/send-commands! [comm/takeoff])
-(comm/send-commands! [comm/land])
-(comm/send-commands! [comm/emergency])
 (defn telemetry [_]
-  (comm/get-nav-data)
-  #_{:pitch 0.0
-   :yaw 0.0
-   :roll 0.0
-   :alt 758.0
-   :vel-x 0.0
-   :vel-y 0.0
-   :vel-z 0.0
+  #_(comm/get-nav-data)
+  {:pitch    0.0
+   :yaw      0.0
+   :roll     0.4
+   :alt    758.0
+   :vel-x    0.0
+   :vel-y    0.0
+   :vel-z    0.0
    :control-state :landed
-   :battery-percent 120.0})
+   :battery-percent 25.1})

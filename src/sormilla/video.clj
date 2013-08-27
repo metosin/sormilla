@@ -1,13 +1,11 @@
 (ns sormilla.video
   (:import [com.twilight.h264.decoder AVFrame AVPacket H264Decoder MpegEncContext]
            [com.twilight.h264.player FrameUtils]
-           [org.opencv.core CvType Mat MatOfByte]
-           [org.opencv.highgui Highgui]
-           [java.awt RenderingHints]
+           [java.awt RenderingHints Image]
            [java.awt.image BufferedImage]
            [java.net Socket InetSocketAddress]
            [javax.imageio ImageIO]
-           [java.io InputStream ByteArrayInputStream]
+           [java.io InputStream OutputStream ByteArrayInputStream]
            [org.apache.commons.io IOUtils])
   (:require [sormilla.bin :as bin]
             [sormilla.drone-comm :as comm]
@@ -48,42 +46,47 @@
     (.setRGB image 0 0 w h buffer 0 w)
     image))
 
-(defn make-decoder [^InputStream in]
+(defn make-reader [^InputStream in]
+  (let [header1  (byte-array 12)
+        header2  (byte-array 256)
+        payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
+    (fn []
+      (read-input in header1 12)
+      (when-not (= (bin/get-int header1 0) 0x45566150) (throw (java.io.IOException. "out of sync")))
+      (let [header-size  (bin/get-short header1 6)
+            payload-size (bin/get-int header1 8)]
+        (read-input in header2 (- header-size 12))
+        (read-input in payload payload-size)
+        [[header1 12]
+         [header2 header-size]
+         [payload payload-size]]))))
+
+(defn make-decoder []
   (let [codec           (H264Decoder.)
         context         (MpegEncContext/avcodec_alloc_context)
         packet          (AVPacket.)
         frame           (AVFrame/avcodec_alloc_frame)
-        image-buffer    (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))
         ibuffer         (int-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))
-        got-picture?    (int-array [0])
-        header-buffer   (byte-array 12)]
+        got-picture?    (int-array [0])]
     
     (if-not (zero? (bit-and (.capabilities codec) H264Decoder/CODEC_CAP_TRUNCATED)) (throw (Exception. "need to configure CODEC_FLAG_TRUNCATED")))
     (if (neg? (.avcodec_open context codec)) (throw (Exception. "Could not open codec")))
     (.av_init_packet packet)
     
-    (fn ^BufferedImage []
-      (let [header       (read-input in header-buffer 12)
-            header-size  (header-size header)
-            image-size   (payload-size header)]
-        
-        (when-not (= (signature header) 0x45566150) (throw (java.io.IOException. "out of sync")))
-        (skip-input in (- header-size 12))
-        (read-input in image-buffer image-size)
-        
-        (set! (.size packet) image-size)
-        (set! (.data_base packet) (ba->ia image-buffer ibuffer image-size))
-        (set! (.data_offset packet) 0)
-        
-        (.avcodec_decode_video2 context frame got-picture? packet)
-        (when (zero? (first got-picture?)) (throw (java.io.IOException. "Could not decode frame")))
-        
-        (let [picture         (.displayPicture (.priv_data context))
-              width           (.imageWidth picture)
-              height          (.imageHeight picture)
-              picture-buffer  (int-array (* width height))]
-          (FrameUtils/YUV2RGB picture picture-buffer)
-          (buffer->image width height picture-buffer))))))
+    (fn ^BufferedImage [buffer size]
+      (set! (.size packet) size)
+      (set! (.data_base packet) (ba->ia buffer ibuffer size))
+      (set! (.data_offset packet) 0)
+      
+      (.avcodec_decode_video2 context frame got-picture? packet)
+      (when (zero? (first got-picture?)) (throw (java.io.IOException. "Could not decode frame")))
+      
+      (let [picture         (.displayPicture (.priv_data context))
+            width           (.imageWidth picture)
+            height          (.imageHeight picture)
+            picture-buffer  (int-array (* width height))]
+        (FrameUtils/YUV2RGB picture picture-buffer)
+        (buffer->image width height picture-buffer)))))
 
 ;;
 ;; Streaming:
@@ -94,27 +97,32 @@
 (defn open-socket ^Socket []
   (doto (Socket.)
     (.setSoTimeout 2000)
-    (.connect (InetSocketAddress. comm/drone-ip 5555))))
+    (.connect (InetSocketAddress.  "localhost" #_ comm/drone-ip 5555))))
 
-(defn open-socket ^Socket []
-  (doto (Socket.)
-    (.setSoTimeout 2000)
-    (.connect (InetSocketAddress. "localhost" 5555))))
+(defn get-date-time []
+  (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)))
+
+(defn save [^OutputStream out data]
+  (doseq [[buffer size] data]
+    (.write out buffer 0 size)))
 
 (defn init-video-streaming! []
-  (comm/send-commands! [comm/video-to-usb-on])
-  (comm/send-commands! [(comm/video-codec :h264-360p) #_(comm/video-frame-rate 15)])
   (future
     (try
       (while (run?)          
         (let [socket   (open-socket)   
-              decoder  (make-decoder (.getInputStream socket) #_(io/input-stream socket))]
+              out      (io/output-stream (io/file (str "sormilla-" (get-date-time) ".h264")))
+              reader   (make-reader (.getInputStream socket))
+              saver    (partial save out)
+              decoder  (make-decoder)]
           (try
             (doto (.getOutputStream socket)
               (.write (byte-array (map bin/ubyte [1 0 0 0])))
               (.flush))
-            (while (run?)
-              (reset! image (decoder)))
+            (loop [data (reader)]
+              (saver data)
+              (reset! image (apply decoder (nth data 2)))
+              (when (run?) (recur (reader))))
             (catch java.io.IOException e
               (println "I/O error:" e ": reconnecting..."))
             (finally
@@ -126,11 +134,7 @@
       (finally
         (reset! image nil)))))
 
-(defn get-date-time []
-  (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)))
-
 (defn init-video-saving! []
-  ;(comm/send-commands! [(comm/video-codec :h264-360p) #_(comm/video-frame-rate 15)])
   (future
     (try
       (while (run?)
@@ -154,14 +158,19 @@
         (println "exception while processing video stream" e)
         (.printStackTrace e)))))
 
+
+;;
+;; here be dragons...
+;;
+
 (comment
 
 (defn parse-file []
-  (let [in (io/input-stream (io/file "capture.h264"))
-        decoder (make-decoder)]
+  (let [in (io/input-stream (io/file "sormilla-20130825-164933.h264"))
+        decoder (make-decoder in)]
     (try
       (doseq [i (range 10)]
-        (ImageIO/write (decoder in) "png" (io/file (str "image-" i ".png"))))
+        (ImageIO/write (decoder) "png" (io/file (str "image-" i ".png"))))
       (println "success!")
       (catch Exception e
         (println "failure" e)
