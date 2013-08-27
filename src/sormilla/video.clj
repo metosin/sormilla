@@ -14,22 +14,7 @@
 
 (set! *warn-on-reflection* true)
 
-;;
-;; I/O
-;;
-
-(defn read-input ^bytes [^InputStream in ^bytes buffer ^Long size]
-  (.read in buffer 0 size)
-  ;(IOUtils/readFully in buffer 0 size)
-  buffer)
-
-(defn skip-input [^InputStream in ^long size]
-  (.skip in size)
-  in)
-
-;;
-;; Video decoding
-;;
+(def image (atom nil))
 
 (defn ba->ia [^bytes source ^ints target ^Long size]
   (loop [i 0]
@@ -37,29 +22,29 @@
     (when (< (inc i) size) (recur (inc i))))
   target)
 
-(defn signature [header]    (bin/get-int header 0))
-(defn header-size [header]  (bin/get-short header 6))
-(defn payload-size [header] (bin/get-int header 8))
-
 (defn buffer->image ^BufferedImage [^Long w ^Long h ^ints buffer]
   (let [image (BufferedImage. w h BufferedImage/TYPE_INT_RGB)]
     (.setRGB image 0 0 w h buffer 0 w)
     image))
 
+(defn read-buffer [^InputStream in buffer offset size]
+  (when (neg? (.read in buffer offset size)) (throw (java.io.EOFException.))))
+
 (defn make-reader [^InputStream in]
-  (let [header1  (byte-array 12)
-        header2  (byte-array 256)
+  (let [header   (byte-array 256)
         payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
     (fn []
-      (read-input in header1 12)
-      (when-not (= (bin/get-int header1 0) 0x45566150) (throw (java.io.IOException. "out of sync")))
-      (let [header-size  (bin/get-short header1 6)
-            payload-size (bin/get-int header1 8)]
-        (read-input in header2 (- header-size 12))
-        (read-input in payload payload-size)
-        [[header1 12]
-         [header2 header-size]
-         [payload payload-size]]))))
+      (try
+        (read-buffer in header 0 12)
+        (let [signature    (bin/get-int header 0)
+              header-size  (bin/get-short header 6)
+              payload-size (bin/get-int header 8)]
+          (when-not (= signature 0x45566150) (throw (java.io.IOException. "out of sync")))
+          (read-buffer in header 12 (- header-size 12))
+          (read-buffer in payload 0 payload-size)
+          [[header header-size] [payload payload-size]])
+        (catch java.io.EOFException _
+          nil)))))
 
 (defn make-decoder []
   (let [codec           (H264Decoder.)
@@ -68,12 +53,12 @@
         frame           (AVFrame/avcodec_alloc_frame)
         ibuffer         (int-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))
         got-picture?    (int-array [0])]
-    
+
     (if-not (zero? (bit-and (.capabilities codec) H264Decoder/CODEC_CAP_TRUNCATED)) (throw (Exception. "need to configure CODEC_FLAG_TRUNCATED")))
     (if (neg? (.avcodec_open context codec)) (throw (Exception. "Could not open codec")))
     (.av_init_packet packet)
-    
-    (fn ^BufferedImage [buffer size]
+
+    (fn ^BufferedImage [[^bytes buffer size]]
       (set! (.size packet) size)
       (set! (.data_base packet) (ba->ia buffer ibuffer size))
       (set! (.data_offset packet) 0)
@@ -88,76 +73,49 @@
         (FrameUtils/YUV2RGB picture picture-buffer)
         (buffer->image width height picture-buffer)))))
 
-;;
-;; Streaming:
-;;
-
-(def image (atom nil))
-
 (defn open-socket ^Socket []
   (doto (Socket.)
     (.setSoTimeout 2000)
     (.connect (InetSocketAddress.  "localhost" #_ comm/drone-ip 5555))))
 
-(defn get-date-time []
-  (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)))
-
 (defn save [^OutputStream out data]
   (doseq [[buffer size] data]
-    (.write out buffer 0 size)))
+    (.write out buffer 0 size))
+  out)
+
+(defmacro while-let [[l r] & body]
+  `(loop []
+     (when-let [v# ~r]
+       (let [~l v#]
+         ~@body)
+       (when v# (recur)))))
 
 (defn init-video-streaming! []
   (future
     (try
       (while (run?)          
-        (let [socket   (open-socket)   
-              out      (io/output-stream (io/file (str "sormilla-" (get-date-time) ".h264")))
-              reader   (make-reader (.getInputStream socket))
-              saver    (partial save out)
-              decoder  (make-decoder)]
+        (let [socket      (open-socket)   
+              out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
+              reader      (make-reader (.getInputStream socket))
+              decoder     (make-decoder)]
           (try
             (doto (.getOutputStream socket)
               (.write (byte-array (map bin/ubyte [1 0 0 0])))
               (.flush))
-            (loop [data (reader)]
-              (saver data)
-              (reset! image (apply decoder (nth data 2)))
-              (when (run?) (recur (reader))))
+            (while-let [data (reader)]
+              (send-off out save data)
+              (reset! image (decoder (second data))))
             (catch java.io.IOException e
-              (println "I/O error:" e ": reconnecting..."))
+              (println "I/O error:" e ": reconnecting...")
+              (Thread/sleep 1000))
             (finally
-              (try (.close socket) (catch Exception _))))))
+              (try (.close socket) (catch Exception _))
+              (try (.close ^OutputStream @out) (catch Exception _))))))
       (catch Throwable e
         (println "exception while processing video stream" e)
-        (.printStackTrace e)
-        (Thread/sleep 1000))
+        (.printStackTrace e))
       (finally
         (reset! image nil)))))
-
-(defn init-video-saving! []
-  (future
-    (try
-      (while (run?)
-        (let [socket   (open-socket)   
-              in       (io/input-stream socket)
-              out      (io/output-stream (io/file (str "sormilla-" (get-date-time) ".h264")))
-              buffer   (byte-array 4096)]
-          (try
-            (doto (.getOutputStream socket)
-              (.write (byte-array (map bin/ubyte [1 0 0 0])))
-              (.flush))
-            (while (run?)
-              (let [c (.read in buffer 0 4096)]
-                (.write out buffer 0 c)))
-            (catch java.io.IOException e
-              (println "I/O error:" e ": reconnecting..."))
-            (finally
-              (try (.close socket) (catch Exception e))
-              (try (.close out) (catch Exception e))))))
-      (catch Throwable e
-        (println "exception while processing video stream" e)
-        (.printStackTrace e)))))
-
 
 ;;
 ;; here be dragons...
