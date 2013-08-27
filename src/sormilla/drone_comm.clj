@@ -1,6 +1,5 @@
 (ns sormilla.drone-comm
   (:require [sormilla.bin :refer :all]
-            [sormilla.navdata-logging :refer [log] :as logging]
             [clojure.string :as s])
   (:import [java.net InetAddress DatagramPacket DatagramSocket]))
 
@@ -225,7 +224,6 @@
       new-options
       (parse-options ba next-offset new-options))))
 
-
 (defn parse-navdata [navdata]
   (merge
     {:header   (get-int navdata 0)
@@ -235,7 +233,7 @@
     (parse-options navdata 16 {})))
 
 (defonce ^DatagramSocket nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
-(def trigger (DatagramPacket. (byte-array (map ubyte [0x01 0x00 0x00 0x00])) 4 drone-ip 5554))
+(def trigger (DatagramPacket. (byte-array (map ubyte [1 0 0 0])) 4 drone-ip 5554))
 
 (defn get-nav-data []
   (try
@@ -243,6 +241,6 @@
       (doto nav-socket
         (.send trigger)
         (.receive packet))
-      (-> (.getData packet) log parse-navdata))
+      (parse-navdata (.getData packet)))
     (catch java.net.SocketTimeoutException e
       nil)))
