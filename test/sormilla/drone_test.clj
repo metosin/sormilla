@@ -58,15 +58,15 @@
 
 (facts pitch
   (pitch    0.0) => (roughly  0.0)
-  (pitch -100.0) => (roughly -1.0)
-  (pitch  100.0) => (roughly  1.0)
-  (pitch  120.0) => (roughly  1.0))
+  (pitch -100.0) => (roughly -0.7)
+  (pitch  100.0) => (roughly  0.7)
+  (pitch  120.0) => (roughly  0.8))
 
 (facts roll
   (roll   0.0) => (roughly  0.0)
-  (roll  -0.6) => (roughly -1.0)
-  (roll   0.6) => (roughly  1.0)
-  (roll   0.8) => (roughly  1.0))
+  (roll  -0.6) => (roughly -0.8)
+  (roll   0.6) => (roughly  0.8)
+  (roll   0.8) => (roughly  0.8))
 
 (facts move-command
   (move-command nil) => comm/hover
@@ -74,6 +74,6 @@
   (move-command {:keys {:right true}})            => (comm/move 0.0 0.0 yaw-speed 0.0)
   (move-command {:keys {:right true :up true}})   => (comm/move 0.0 0.0 yaw-speed alt-speed)
   (move-command {:keys {:right true :up true}
-                 :leap {:pitch 100.0 :roll 0.6}}) => (comm/move 1.0 1.0 yaw-speed alt-speed)
+                 :leap {:pitch 100.0 :roll 0.6}}) => (comm/move 0.7 0.8 yaw-speed alt-speed)
   
   )
