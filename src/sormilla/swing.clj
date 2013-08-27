@@ -1,7 +1,7 @@
 (ns sormilla.swing
   (:require [clojure.java.io :as io]
             [sormilla.system :refer [run?]])
-  (:import [java.awt Graphics2D Shape Canvas Color KeyboardFocusManager KeyEventDispatcher]
+  (:import [java.awt Graphics2D Shape Canvas Color KeyboardFocusManager KeyEventDispatcher Toolkit Dimension]
            [java.awt.geom Path2D$Double Ellipse2D$Double]
            [java.awt.event KeyEvent]
            [javax.swing JFrame SwingUtilities]))
@@ -25,9 +25,10 @@
     (.setIgnoreRepaint frame true)
     (.setIgnoreRepaint canvas true)
     (.add frame canvas)
+    (.setSize canvas 672 418)
     (.pack frame)
-    (.setSize canvas 800 500)
-    (.setSize frame 800 500)
+    (let [screen-size (.getScreenSize (Toolkit/getDefaultToolkit))]
+      (.setLocation frame (- (.width screen-size) 672) 0))
     (if max-size
       (.setExtendedState frame JFrame/MAXIMIZED_BOTH))
     (when top
@@ -53,8 +54,7 @@
                 (when (pos? time-left)
                   (Thread/sleep time-left)))))
           (SwingUtilities/invokeLater
-            (fn []
-              (.setVisible frame false)))
+            (fn [] (.setVisible frame false)))
           (catch Throwable e
             (println "Oh shit!" e)
             (throw e)))))

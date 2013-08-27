@@ -14,3 +14,7 @@ pom.xml.asc
 .project
 LeapSDK
 *.log
+*.m4v
+*.h264
+*.png
+

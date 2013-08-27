@@ -18,8 +18,7 @@
 (def pitch (comp
              (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
              (math/averager 10)
-             (math/clip-to-zero 0.15)
-             #_(fn [v] (- v 0.1))))
+             (math/clip-to-zero 0.15)))
 
 (def yaw (comp
            (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
@@ -46,12 +45,12 @@
 (defonce ^Controller connection (connect))
 
 (defn leap [_]
-  (when (.isConnected connection)
+  #_(when (.isConnected connection)
     (let [hands       (-> connection .frame .hands) 
           hand-count  (.count hands)]
       (when (pos? (.count hands))
         (->hand (.leftmost hands)))))
-  #_{:quality 3
-   :pitch 0.30
-   :yaw 0.20
-   :roll 0.0})
+  {:quality 5
+   :pitch   30.50
+   :yaw     20.00
+   :roll    0.20})

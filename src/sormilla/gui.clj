@@ -1,8 +1,9 @@
 (ns sormilla.gui
   (:require [sormilla.system :refer [status] :as system]
             [sormilla.swing :refer [with-transforms] :as swing]
-            [sormilla.math :as math])
-  (:import [java.awt Color Graphics2D RenderingHints]))
+            [sormilla.math :as math]
+            [sormilla.video :as video])
+  (:import [java.awt Color Graphics2D RenderingHints Image]))
 
 (set! *warn-on-reflection* true)
 
@@ -10,10 +11,10 @@
 (def hud-color            (Color.   64  192  64    92))
 (def hud-hi-color         (Color.   64  255  64   192))
 (def hud-lo-color         (Color.   64  192  64    32))
-(def leap-color           (Color.   64  255  64    64))
+(def leap-color           (Color.   64  255  64   192))
 (def key-color            (Color.   64  128  64    32))
-(def telemetry-color      (Color.  255   32  32   192))
-(def alt-color            (Color.  255   32  32    64))
+(def telemetry-color      (Color.  255   32  32   255))
+(def alt-color            (Color.  255   32  32   192))
 (def status-hi-color      (Color.  255  255   0   255))
 (def status-lo-color      (Color.  192  192   0   255))
 
@@ -39,10 +40,18 @@
     ; setup
     (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
     
-    ; clear background
-    (.setColor g background-color)
-    (.fillRect g 0 0 w h)
-
+    ; video feed
+    (if-let [image ^Image @video/image]
+      (do
+        (.drawImage g image 0 0 nil)
+        (.setColor g (Color. 0 0 0 96))
+        (.fillRect g 0 0 w h))
+      (do
+        (.setColor g background-color)
+        (.fillRect g 0 0 w h)
+        (.setColor g Color/WHITE)
+        (.drawString g "no image feed" 15 75)))
+    
     ; emergency background    
     (when (= (:control-state telemetry) :emergency)
       (.setColor g (if (< (mod (System/currentTimeMillis) 400) 200) (Color. 128 16 16) (Color. 192 16 16)))
@@ -68,9 +77,9 @@
       (when space  (.fill g (swing/->shape 50 (- h 40) (- w 50) (- h 40) (- w 50) (- h 10) 50 (- h 10)))))
     
     ; draw grid
-    (.setColor g hud-lo-color)
-    (doseq [x (range (/ w 10) w (/ w 10))] (.drawLine g x 0 x h))
-    (doseq [y (range (/ h 10) h (/ h 10))] (.drawLine g 0 y w y))
+    ;(.setColor g hud-lo-color)
+    ;(doseq [x (range (/ w 10) w (/ w 10))] (.drawLine g x 0 x h))
+    ;(doseq [y (range (/ h 10) h (/ h 10))] (.drawLine g 0 y w y))
     
     ; draw zero axis
     (.setColor g hud-color)
