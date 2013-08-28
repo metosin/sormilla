@@ -81,7 +81,6 @@
 
 (defn upstream [status]
   (when-let [command (or (control-state-command status) (move-command status))]
-    #_(println command)
     (comm/send-commands! [command])))
 
 (defn telemetry [_]
