@@ -15,7 +15,9 @@
     buffer))
 
 (defn write-buffer [^OutputStream out ^bytes buffer]
-  (.write out buffer))
+  (doseq [i (range (alength buffer))]
+    (.write out (bit-and 0xFF (aget buffer i)))
+    #_(when (zero? (mod i 256)) (Thread/sleep 1))))
 
 (defn concat-arrays ^bytes [& as]
   (let [target (byte-array (reduce + (map (fn [^bytes a] (count a)) as)))]

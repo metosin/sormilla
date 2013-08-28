@@ -24,8 +24,8 @@
   (task 60 drone/upstream)
   (task 100 drone/telemetry)
   (task 50 leap/leap)
-  (video/init-video-streaming!)
   (swing/make-frame #'gui/render :safe true :top true)
+  (video/init-video-streaming!)
 
   (system/shutdown!)
   (reset! system/status {:run true})

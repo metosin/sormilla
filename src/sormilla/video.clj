@@ -28,13 +28,13 @@
     (.setRGB image 0 0 w h buffer 0 w)
     image))
 
-(defn read-buffer [^InputStream in buffer offset size]
-  (when (neg? (.read in buffer offset size)) (throw (java.io.EOFException.))))
+(defn read-buffer [^InputStream in ^bytes buffer ^long offset ^long size]
+  (IOUtils/readFully in buffer offset size))
 
 (defn make-reader [^InputStream in]
-  (let [header   (byte-array 256)
-        payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
-    (fn []
+  (fn []
+    (let [header   (byte-array 256)
+          payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
       (try
         (read-buffer in header 0 12)
         (let [signature    (bin/get-int header 0)
@@ -77,7 +77,7 @@
 (defn open-socket ^Socket []
   (doto (Socket.)
     (.setSoTimeout 2000)
-    (.connect (InetSocketAddress.  "localhost" #_ comm/drone-ip 5555))))
+    (.connect (InetSocketAddress. "localhost" #_ comm/drone-ip 5555))))
 
 (defn save [^OutputStream out data]
   (doseq [[buffer size] data]
@@ -106,8 +106,7 @@
             (while (run?)
               (let [data (reader)]
                 #_(save out data)
-                (let [i (decoder (second data))]
-                  (reset! image i))))
+                (reset! image (decoder (second data)))))
             (catch java.io.IOException e
               (println "I/O error:" e ": reconnecting...")
               (Thread/sleep 1000))
