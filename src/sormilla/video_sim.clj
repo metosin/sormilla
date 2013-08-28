@@ -27,15 +27,20 @@
     target))
 
 (defn read-frame [^InputStream in]
-  (when (pos? (.available in))
-    (let [header      (read-buffer in 12)
-          header-size (bin/get-short header 6)
-          data-size   (bin/get-int header 8)]
-      (concat-arrays header (read-buffer in (- header-size 12)) (read-buffer in data-size)))))
+  (try
+    (when (pos? (.available in))
+      (let [header      (read-buffer in 12)
+            signature   (bin/get-int header 0)
+            header-size (bin/get-short header 6)
+            data-size   (bin/get-int header 8)]
+        (when-not (= signature 0x45566150) (throw (java.io.IOException. (format "out of sync (0x%08X)" signature))))
+        (concat-arrays header (read-buffer in (- header-size 12)) (read-buffer in data-size))))
+    (catch java.io.EOFException _
+      nil)))
 
-(defn load-frames [c]
-  (with-open [i (io/input-stream (io/file "sormilla-20130825-163715.h264"))]
-    (doall (take c (repeatedly (partial read-frame i))))))
+(defn load-frames []
+  (with-open [i (io/input-stream (io/file "capture.h264"))]
+    (doall (take-while identity (repeatedly (partial read-frame i))))))
 
 (defn serve-client! [^Socket s frames]
   (println "client connected from" (str (.getRemoteSocketAddress s)))
@@ -65,8 +70,9 @@
 
 (defn -main [& args]
   (println "video server initializing....")
-  (let [frames (load-frames 1024)]
-    (println "starting...")
+  (let [frames (load-frames)]
+    (println "Loaded " (count frames) "frames.")
+    (println "Server starting...")
     (start-server! frames)
     (println "ready, press any key to exit")
     (.read (System/in))
