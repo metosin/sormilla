@@ -39,10 +39,7 @@
        :yaw           (-> aim .yaw yaw)
        :roll          (-> hand .palmNormal .roll roll)})))
 
-(defn connect ^Controller []
-  (Controller.))
-
-(defonce ^Controller connection (connect))
+(defonce ^Controller connection (Controller.))
 
 (defn leap [_]
   (when (.isConnected connection)
