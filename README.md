@@ -1,28 +1,20 @@
 sormilla
 ========
 
-Playing with Leap Motion
+Playing with Leap Motion and Parrot AR.Drone 2
 
 # What is this?
 
-Playing with [LeapMotion](http://www.leapmotion.com) using [Clojure](http://www.clojure.org).
+Playing with [LeapMotion](http://www.leapmotion.com) and [AR.Drone](http://ardrone2.parrot.com) using [Clojure](http://www.clojure.org).
 
 # How to install?
 
-You need a LeapMotion device and the [SDK](https://www.leapmotion.com/developers) (SDK license does not allow me to include it here). The SDK comes in tar-ball, extract it to somewhere and sym-link it to project root, like this:
+You need a LeapMotion device attached to your computer and an AR.Drone up and running and you need to be in the same Wi-Fi network with the AR.Drone.
 
 ```
 $ git clone https://github.com/jarppe/sormilla.git
 $ cd sormilla
-$ ln -s /where/you/put/the/sdk/LeapSDK .
 $ lein run
 ```
 
-Linux, run these after ln -s ...
-```
-cd LeapSDK/lib/x64 # (or x86 depending on your arch)
-cp libLeapJava.so libLeap.so ..
-cd ../../..
-```
-
-See, that wasn't so hard, eh?
+Special thanks to https://github.com/nakkaya/ardrone and https://github.com/gigasquid/clj-drone.
