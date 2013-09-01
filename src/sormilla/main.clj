@@ -35,3 +35,20 @@
 
 "application ready"
 
+(require '[clojure.core.async :refer [>! >!! <! <!! go] :as a])
+
+(def c (a/chan (a/sliding-buffer 1)))
+(a/close! c)
+(defn f []
+  (future
+    (go
+      (println "f: got" (<! c)))))
+
+(defn b [v]
+  (future
+    (go
+      (>! c v)
+      (println "b: sent" v))))
+
+(f)
+(b :foozaa)
