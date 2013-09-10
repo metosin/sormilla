@@ -91,7 +91,7 @@
     (try
       (while (run?)          
         (let [socket      (open-socket)
-              out         (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264")))
+              out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
               reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
               decoder     (make-decoder)]
           (try
@@ -100,14 +100,14 @@
               (.flush))
             (while (run?)
               (let [data (reader)]
-                #_(save out data)
+                (send-off out save data)
                 (swap! status assoc :image (decoder (second data)))))
             (catch java.io.IOException e
               (println "I/O error:" e ": reconnecting...")
               (Thread/sleep 1000))
             (finally
               (try (.close socket) (catch Exception _))
-              (try (.close ^OutputStream out) (catch Exception _))))))
+              (try (.close ^OutputStream @out) (catch Exception _))))))
       (catch Throwable e
         (println "exception while processing video stream" e)
         (.printStackTrace e))
