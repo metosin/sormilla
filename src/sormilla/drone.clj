@@ -1,5 +1,6 @@
 (ns sormilla.drone
   (:require [sormilla.drone-comm :as comm]
+            [sormilla.drone-navdata :as navdata]
             [sormilla.system :refer [task] :as system]
             [sormilla.math :as math]
             [sormilla.swing :as swing]))
@@ -85,8 +86,8 @@
     (comm/send-commands! [command])))
 
 (defn telemetry [_]
-  #_(comm/get-nav-data)
-  {:pitch    0.2
+  (navdata/get-nav-data)
+  #_{:pitch    0.2
    :yaw      0.0
    :roll     0.2
    :alt    758.0

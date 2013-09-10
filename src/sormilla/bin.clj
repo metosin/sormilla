@@ -51,3 +51,10 @@
 
 (defn bit-set? [value bit]
   (not (zero? (bit-and value (bit-shift-left 1 bit)))))
+
+(defn bits->i [bits]
+  (reduce
+    (fn [value bit-index] 
+      (bit-or value (bit-shift-left 1 bit-index)))
+    0
+    bits))
