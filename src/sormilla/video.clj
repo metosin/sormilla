@@ -5,7 +5,7 @@
            [java.awt.image BufferedImage]
            [java.net Socket InetSocketAddress]
            [javax.imageio ImageIO]
-           [java.io InputStream OutputStream ByteArrayInputStream]
+           [java.io InputStream OutputStream ByteArrayInputStream BufferedInputStream]
            [org.apache.commons.io IOUtils])
   (:require [sormilla.bin :as bin]
             [sormilla.drone :as drone]
@@ -92,7 +92,7 @@
       (while (run?)          
         (let [socket      (open-socket)
               out         (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264")))
-              reader      (make-reader (.getInputStream socket))
+              reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
               decoder     (make-decoder)]
           (try
             (doto (.getOutputStream socket)
