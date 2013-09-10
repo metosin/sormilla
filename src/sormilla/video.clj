@@ -8,6 +8,7 @@
            [java.io InputStream OutputStream ByteArrayInputStream]
            [org.apache.commons.io IOUtils])
   (:require [sormilla.bin :as bin]
+            [sormilla.drone :as drone]
             [sormilla.drone-comm :as comm]
             [sormilla.system :refer [run?]]
             [clojure.java.io :as io]))
@@ -27,19 +28,19 @@
     (.setRGB image 0 0 w h buffer 0 w)
     image))
 
-(defn read-buffer [^InputStream in buffer offset size]
-  (when (neg? (.read in buffer offset size)) (throw (java.io.EOFException.))))
+(defn read-buffer [^InputStream in ^bytes buffer ^long offset ^long size]
+  (IOUtils/readFully in buffer offset size))
 
 (defn make-reader [^InputStream in]
-  (let [header   (byte-array 256)
-        payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
-    (fn []
+  (fn []
+    (let [header   (byte-array 256)
+          payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
       (try
         (read-buffer in header 0 12)
         (let [signature    (bin/get-int header 0)
               header-size  (bin/get-short header 6)
               payload-size (bin/get-int header 8)]
-          (when-not (= signature 0x45566150) (throw (java.io.IOException. "out of sync")))
+          (when-not (= signature 0x45566150) (throw (java.io.IOException. (format "out of sync (0x%08X)" signature))))
           (read-buffer in header 12 (- header-size 12))
           (read-buffer in payload 0 payload-size)
           [[header header-size] [payload payload-size]])
@@ -76,7 +77,7 @@
 (defn open-socket ^Socket []
   (doto (Socket.)
     (.setSoTimeout 2000)
-    (.connect (InetSocketAddress.  "localhost" #_ comm/drone-ip 5555))))
+    (.connect (InetSocketAddress. "localhost" #_ comm/drone-ip 5555))))
 
 (defn save [^OutputStream out data]
   (doseq [[buffer size] data]
@@ -95,7 +96,7 @@
     (try
       (while (run?)          
         (let [socket      (open-socket)
-              out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
+              out         (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264")))
               reader      (make-reader (.getInputStream socket))
               decoder     (make-decoder)]
           (try
@@ -104,7 +105,7 @@
               (.flush))
             (while (run?)
               (let [data (reader)]
-                (send-off out save data)
+                #_(save out data)
                 (reset! image (decoder (second data)))))
             (catch java.io.IOException e
               (println "I/O error:" e ": reconnecting...")
@@ -124,6 +125,24 @@
 
 (comment
 
+  (drone/init-drone)
+  (init-video-streaming!)
+  (:video (:telemetry @sormilla.system/status))
+  
+  (sormilla.system/shutdown!)
+  (reset! sormilla.system/status {:run true})
+  (comm/send-commands! [[:led 0 1.0 0]])
+  (comm/send-commands! [[:config "video:video_on_usb" true]])
+  (comm/send-commands! [comm/comm-reset
+                        comm/trim
+                        comm/enable-navdata
+                        comm/ctrl-ack
+                        comm/land
+                        comm/leds-active])
+  
+  (:video (:telemetry @sormilla.system/status))
+  
+  
 (defn parse-file []
   (let [in (io/input-stream (io/file "sormilla-20130825-164933.h264"))
         decoder (make-decoder in)]
@@ -140,25 +159,30 @@
 (parse-file)
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v
+)
 
 (defn capture []
   (let [socket (doto (Socket.)
                  (.setSoTimeout 2000)
                  (.connect (InetSocketAddress. comm/drone-ip 5555)))
-        in (io/input-stream socket)
-        out (io/output-stream (io/file "capture.h264"))]
+        in (.getInputStream socket) #_(io/input-stream socket)
+        out (io/output-stream (io/file "capture.h264"))
+        buffer (byte-array 1024)]
     (try
-      (init-video socket)
-      (doseq [n (range 1024)]
-        (.write out (read-input in 4096)))
-      (.flush out)
-      (.close out)
+      (doto (.getOutputStream socket)
+        (.write (byte-array (map bin/ubyte [1 0 0 0])))
+        (.flush))
+      (doseq [n (range 2048)]
+        (when (zero? (mod n 100)) (println (str "frame " n "...")))
+        (.write out buffer 0 (.read in buffer 0 1024)))
       (println "success!")
       (catch Exception e
         (println "failure" e)
-        (.printStackTrace e)
+        (.printStackTrace e))
+      (finally
         (try (.close socket) (catch Exception e))
         (try (.close out) (catch Exception e))))))
 
-)
-
+(comment
+  (capture)
+) 
