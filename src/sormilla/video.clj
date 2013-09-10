@@ -23,12 +23,7 @@
     (when (< (inc i) size) (recur (inc i))))
   target)
 
-(defn buffer->image ^BufferedImage [^Long w ^Long h ^ints buffer]
-  (let [image (BufferedImage. w h BufferedImage/TYPE_INT_RGB)]
-    (.setRGB image 0 0 w h buffer 0 w)
-    image))
-
-(defn read-buffer [^InputStream in ^bytes buffer ^long offset ^long size]
+(defn read-fully [^InputStream in ^bytes buffer ^long offset ^long size]
   (IOUtils/readFully in buffer offset size))
 
 (defn make-reader [^InputStream in]
@@ -36,13 +31,13 @@
     (let [header   (byte-array 256)
           payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
       (try
-        (read-buffer in header 0 12)
+        (read-fully in header 0 12)
         (let [signature    (bin/get-int header 0)
               header-size  (bin/get-short header 6)
               payload-size (bin/get-int header 8)]
           (when-not (= signature 0x45566150) (throw (java.io.IOException. (format "out of sync (0x%08X)" signature))))
-          (read-buffer in header 12 (- header-size 12))
-          (read-buffer in payload 0 payload-size)
+          (read-fully in header 12 (- header-size 12))
+          (read-fully in payload 0 payload-size)
           [[header header-size] [payload payload-size]])
         (catch java.io.EOFException _
           nil)))))
@@ -70,14 +65,16 @@
       (let [picture         (.displayPicture (.priv_data context))
             width           (.imageWidth picture)
             height          (.imageHeight picture)
-            picture-buffer  (int-array (* width height))]
+            picture-buffer  (int-array (* width height))
+            image           (BufferedImage. width height BufferedImage/TYPE_INT_RGB)]
         (FrameUtils/YUV2RGB picture picture-buffer)
-        (buffer->image width height picture-buffer)))))
+        (.setRGB image 0 0 width height picture-buffer 0 width)
+        image))))
 
 (defn open-socket ^Socket []
   (doto (Socket.)
     (.setSoTimeout 2000)
-    (.connect (InetSocketAddress. "localhost" #_ comm/drone-ip 5555))))
+    (.connect (InetSocketAddress. #_ "localhost" comm/drone-ip 5555))))
 
 (defn save [^OutputStream out data]
   (doseq [[buffer size] data]
@@ -112,7 +109,7 @@
               (Thread/sleep 1000))
             (finally
               (try (.close socket) (catch Exception _))
-              (try (.close ^OutputStream @out) (catch Exception _))))))
+              (try (.close ^OutputStream out) (catch Exception _))))))
       (catch Throwable e
         (println "exception while processing video stream" e)
         (.printStackTrace e))
