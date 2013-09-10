@@ -10,12 +10,10 @@
   (:require [sormilla.bin :as bin]
             [sormilla.drone :as drone]
             [sormilla.drone-comm :as comm]
-            [sormilla.system :refer [run?]]
+            [sormilla.system :refer [run? status]]
             [clojure.java.io :as io]))
 
 (set! *warn-on-reflection* true)
-
-(def image (atom nil))
 
 (defn ba->ia [^bytes source ^ints target ^Long size]
   (loop [i 0]
@@ -103,7 +101,7 @@
             (while (run?)
               (let [data (reader)]
                 #_(save out data)
-                (reset! image (decoder (second data)))))
+                (swap! status assoc :image (decoder (second data)))))
             (catch java.io.IOException e
               (println "I/O error:" e ": reconnecting...")
               (Thread/sleep 1000))
