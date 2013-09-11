@@ -1,8 +1,6 @@
 (ns sormilla.gui
   (:require [sormilla.system :refer [status] :as system]
-            [sormilla.swing :refer [with-transforms] :as swing]
-            [sormilla.math :as math]
-            [sormilla.video :as video])
+            [sormilla.swing :refer [with-transforms] :as swing])
   (:import [java.awt Color Graphics2D RenderingHints Image]))
 
 (set! *warn-on-reflection* true)
@@ -30,7 +28,7 @@
   (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys key-name] false))))
 
 (defn render [^Graphics2D g ^long w ^long h]
-  (let [{:keys [leap telemetry keys intent image]} @status
+  (let [{:keys [leap telemetry keys intent ^Image image]} @status
         now    (System/currentTimeMillis)
         w2     (/ w 2.0)
         w6     (/ w 6.0)
