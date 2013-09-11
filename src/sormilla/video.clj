@@ -110,8 +110,6 @@
               (try (.close ^OutputStream out) (catch Exception _))))))
       (catch Throwable e
         (println "exception while processing video stream" e)
-        (.printStackTrace e))
-      (finally
-        (reset! image nil)))))
+        (.printStackTrace e)))))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v
