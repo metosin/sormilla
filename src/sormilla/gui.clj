@@ -1,8 +1,6 @@
 (ns sormilla.gui
   (:require [sormilla.system :refer [status] :as system]
-            [sormilla.swing :refer [with-transforms] :as swing]
-            [sormilla.math :as math]
-            [sormilla.video :as video])
+            [sormilla.swing :refer [with-transforms] :as swing])
   (:import [java.awt Color Graphics2D RenderingHints Image]))
 
 (set! *warn-on-reflection* true)
@@ -30,7 +28,7 @@
   (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys key-name] false))))
 
 (defn render [^Graphics2D g ^long w ^long h]
-  (let [{:keys [leap telemetry keys intent]} @status
+  (let [{:keys [leap telemetry keys intent ^Image image]} @status
         now    (System/currentTimeMillis)
         w2     (/ w 2.0)
         w6     (/ w 6.0)
@@ -41,16 +39,16 @@
     (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
     
     ; video feed
-    (if-let [image ^Image @video/image]
-      (do
-        (.drawImage g image 0 0 nil)
-        (.setColor g (Color. 0 0 0 96))
-        (.fillRect g 0 0 w h))
-      (do
-        (.setColor g background-color)
-        (.fillRect g 0 0 w h)
-        (.setColor g Color/WHITE)
-        (.drawString g "no image feed" 15 75)))
+    (if image
+      (doto g
+        (.drawImage image 0 0 nil)
+        (.setColor (Color. 0 0 0 96))
+        (.fillRect 0 0 w h))
+      (doto g
+        (.setColor background-color)
+        (.fillRect 0 0 w h)
+        (.setColor Color/WHITE)
+        (.drawString "no image feed" 25 75)))
     
     ; emergency background    
     (when (= (:control-state telemetry) :emergency)

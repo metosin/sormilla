@@ -14,9 +14,9 @@
   `(future
      (while (run?)
        (try
-         (let [start# (System/nanoTime)
+         (let [start# (System/currentTimeMillis)
                result# (~f @status)
-               time-left# (- ~interval (long (/ (- (System/nanoTime) start#) 1000 1000)))]
+               time-left# (- ~interval (- (System/currentTimeMillis) start#))]
            (swap! status assoc ~(keyword (name f)) result#)
            (when (pos? time-left#)
              (Thread/sleep time-left#)))

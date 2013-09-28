@@ -10,9 +10,10 @@
 (defn -main [& args]
   (println "starting...")
   (task 60 drone/upstream)
-  (task 60 drone/telemetry)
+  (task 100 drone/telemetry)
   (task 50 leap/leap)
-  (swing/make-frame gui/render :exit-on-close true)
+  (video/init-video-streaming!)
+  (swing/make-frame gui/render :top true)
   (println "running. press any key to exit...")
   (.read (System/in))
   (println "closing...")
@@ -20,18 +21,17 @@
   (System/exit 0))
 
 (comment
-  (task 100 drone/upstream)
+  (task 60 drone/upstream)
   (task 100 drone/telemetry)
   (task 50 leap/leap)
-  (video/init-video-streaming!)
   (swing/make-frame #'gui/render :safe true :top true)
+  (video/init-video-streaming!)
 
   (system/shutdown!)
   (reset! system/status {:run true})
 
-  (comm/send-commands! [comm/video-to-usb-on])
+  (comm/send-commands! [comm/leds-active])
   (comm/send-commands! [comm/video-to-usb-off])
 )
 
 "application ready"
-

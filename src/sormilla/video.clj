@@ -5,16 +5,15 @@
            [java.awt.image BufferedImage]
            [java.net Socket InetSocketAddress]
            [javax.imageio ImageIO]
-           [java.io InputStream OutputStream ByteArrayInputStream]
+           [java.io InputStream OutputStream ByteArrayInputStream BufferedInputStream]
            [org.apache.commons.io IOUtils])
   (:require [sormilla.bin :as bin]
+            [sormilla.drone :as drone]
             [sormilla.drone-comm :as comm]
-            [sormilla.system :refer [run?]]
+            [sormilla.system :refer [run? status]]
             [clojure.java.io :as io]))
 
 (set! *warn-on-reflection* true)
-
-(def image (atom nil))
 
 (defn ba->ia [^bytes source ^ints target ^Long size]
   (loop [i 0]
@@ -22,26 +21,21 @@
     (when (< (inc i) size) (recur (inc i))))
   target)
 
-(defn buffer->image ^BufferedImage [^Long w ^Long h ^ints buffer]
-  (let [image (BufferedImage. w h BufferedImage/TYPE_INT_RGB)]
-    (.setRGB image 0 0 w h buffer 0 w)
-    image))
-
-(defn read-buffer [^InputStream in buffer offset size]
-  (when (neg? (.read in buffer offset size)) (throw (java.io.EOFException.))))
+(defn read-fully [^InputStream in ^bytes buffer ^long offset ^long size]
+  (IOUtils/readFully in buffer offset size))
 
 (defn make-reader [^InputStream in]
-  (let [header   (byte-array 256)
-        payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
-    (fn []
+  (fn []
+    (let [header   (byte-array 256)
+          payload  (byte-array (+ 65535 MpegEncContext/FF_INPUT_BUFFER_PADDING_SIZE))]
       (try
-        (read-buffer in header 0 12)
+        (read-fully in header 0 12)
         (let [signature    (bin/get-int header 0)
               header-size  (bin/get-short header 6)
               payload-size (bin/get-int header 8)]
-          (when-not (= signature 0x45566150) (throw (java.io.IOException. "out of sync")))
-          (read-buffer in header 12 (- header-size 12))
-          (read-buffer in payload 0 payload-size)
+          (when-not (= signature 0x45566150) (throw (java.io.IOException. (format "out of sync (0x%08X)" signature))))
+          (read-fully in header 12 (- header-size 12))
+          (read-fully in payload 0 payload-size)
           [[header header-size] [payload payload-size]])
         (catch java.io.EOFException _
           nil)))))
@@ -69,14 +63,16 @@
       (let [picture         (.displayPicture (.priv_data context))
             width           (.imageWidth picture)
             height          (.imageHeight picture)
-            picture-buffer  (int-array (* width height))]
+            picture-buffer  (int-array (* width height))
+            image           (BufferedImage. width height BufferedImage/TYPE_INT_RGB)]
         (FrameUtils/YUV2RGB picture picture-buffer)
-        (buffer->image width height picture-buffer)))))
+        (.setRGB image 0 0 width height picture-buffer 0 width)
+        image))))
 
 (defn open-socket ^Socket []
   (doto (Socket.)
     (.setSoTimeout 2000)
-    (.connect (InetSocketAddress.  "localhost" #_ comm/drone-ip 5555))))
+    (.connect (InetSocketAddress. #_ "localhost" comm/drone-ip 5555))))
 
 (defn save [^OutputStream out data]
   (doseq [[buffer size] data]
@@ -96,7 +92,7 @@
       (while (run?)          
         (let [socket      (open-socket)
               out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
-              reader      (make-reader (.getInputStream socket))
+              reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
               decoder     (make-decoder)]
           (try
             (doto (.getOutputStream socket)
@@ -105,7 +101,7 @@
             (while (run?)
               (let [data (reader)]
                 (send-off out save data)
-                (reset! image (decoder (second data)))))
+                (swap! status assoc :image (decoder (second data)))))
             (catch java.io.IOException e
               (println "I/O error:" e ": reconnecting...")
               (Thread/sleep 1000))
@@ -114,51 +110,6 @@
               (try (.close ^OutputStream @out) (catch Exception _))))))
       (catch Throwable e
         (println "exception while processing video stream" e)
-        (.printStackTrace e))
-      (finally
-        (reset! image nil)))))
-
-;;
-;; here be dragons...
-;;
-
-(comment
-
-(defn parse-file []
-  (let [in (io/input-stream (io/file "sormilla-20130825-164933.h264"))
-        decoder (make-decoder in)]
-    (try
-      (doseq [i (range 10)]
-        (ImageIO/write (decoder) "png" (io/file (str "image-" i ".png"))))
-      (println "success!")
-      (catch Exception e
-        (println "failure" e)
-        (.printStackTrace e))
-      (finally
-        (try (.close in) (catch Exception e))))))
-
-(parse-file)
+        (.printStackTrace e)))))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v
-
-(defn capture []
-  (let [socket (doto (Socket.)
-                 (.setSoTimeout 2000)
-                 (.connect (InetSocketAddress. comm/drone-ip 5555)))
-        in (io/input-stream socket)
-        out (io/output-stream (io/file "capture.h264"))]
-    (try
-      (init-video socket)
-      (doseq [n (range 1024)]
-        (.write out (read-input in 4096)))
-      (.flush out)
-      (.close out)
-      (println "success!")
-      (catch Exception e
-        (println "failure" e)
-        (.printStackTrace e)
-        (try (.close socket) (catch Exception e))
-        (try (.close out) (catch Exception e))))))
-
-)
-

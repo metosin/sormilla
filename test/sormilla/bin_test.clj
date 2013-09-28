@@ -56,3 +56,9 @@
   (get-byte (byte-array (map ubyte [0x00])) 0) => 0x00
   (get-byte (byte-array (map ubyte [0x01])) 0) => 0x01
   (get-byte (byte-array (map ubyte [0xFF])) 0) => 0xFF)
+
+(facts bits->i
+  (bits->i [])    => 0x00
+  (bits->i [0])   => 0x01
+  (bits->i [7])   => 0x80
+  (bits->i (range 16))  => 0xFFFF)

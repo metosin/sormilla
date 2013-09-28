@@ -1,5 +1,6 @@
 (ns sormilla.drone
   (:require [sormilla.drone-comm :as comm]
+            [sormilla.drone-navdata :as navdata]
             [sormilla.system :refer [task] :as system]
             [sormilla.math :as math]
             [sormilla.swing :as swing]))
@@ -8,6 +9,14 @@
   (let [current-status (get-in status [:intent :intent-state] :init)
         next-status    ({:init :landed :landed :hovering :hovering :landed} current-status current-status)]
     (assoc-in status [:intent :intent-state] next-status)))
+
+(defn init-drone []
+  (comm/send-commands! [comm/comm-reset
+                        comm/trim
+                        comm/enable-navdata
+                        comm/ctrl-ack
+                        comm/land
+                        comm/leds-active]))
 
 (swing/add-key-listener! {:type :pressed :code swing/key-space}
   (fn [_] (swap! system/status toggle-fly)))
@@ -28,12 +37,7 @@
   (fn [_] (comm/send-commands! [comm/leds-reset])))
 
 (swing/add-key-listener! {:type :pressed :code (int \I)}
-  (fn [_] (comm/send-commands! [comm/comm-reset
-                                comm/trim
-                                comm/enable-navdata
-                                comm/ctrl-ack
-                                comm/land
-                                comm/leds-active])))
+  (fn [_] (init-drone)))
 
 ;                    user        drone    command:
 (def state-commands [:emergency  :any     comm/emergency
@@ -81,12 +85,11 @@
 
 (defn upstream [status]
   (when-let [command (or (control-state-command status) (move-command status))]
-    #_(println command)
     (comm/send-commands! [command])))
 
 (defn telemetry [_]
-  #_(comm/get-nav-data)
-  {:pitch    0.2
+  (navdata/get-nav-data)
+  #_{:pitch    0.2
    :yaw      0.0
    :roll     0.2
    :alt    758.0
