@@ -15,5 +15,7 @@
                    :plugins [[lein-midje "3.1.1"]]}
              :uberjar {:source-paths ["main"]
                        :main sormilla.main
-                       :aot [sormilla.main]}}
+                       :aot [sormilla.main]}
+             :video-sim {:source-paths ["src"]
+                         :main sormilla.video-sim}}
   :min-lein-version "2.3.2")
