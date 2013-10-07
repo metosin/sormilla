@@ -6,6 +6,7 @@
            [java.net Socket InetSocketAddress]
            [javax.imageio ImageIO]
            [java.io InputStream OutputStream ByteArrayInputStream BufferedInputStream]
+           [java.net InetAddress]
            [org.apache.commons.io IOUtils])
   (:require [clojure.java.io :as io]
             [metosin.system :as system]
@@ -71,10 +72,13 @@
         (.setRGB image 0 0 width height picture-buffer 0 width)
         image))))
 
+(def video-source (atom nil))
+
 (defn open-socket ^Socket []
+  (println "Connecting to video stream:" (str @video-source))
   (doto (Socket.)
     (.setSoTimeout 2000)
-    (.connect (InetSocketAddress. #_ "localhost" comm/drone-ip 5555))))
+    (.connect (InetSocketAddress. ^InetAddress @video-source 5555))))
 
 (defn save [^OutputStream out data]
   (doseq [[buffer size] data]
@@ -121,6 +125,7 @@
 
 (def service (reify system/Service
                (start! [this config]
+                 (reset! video-source (if (:video-sim config) (InetAddress/getByName "localhost") comm/drone-ip))
                  (task/submit :video video-streaming)
                  config)
                (stop! [this]
