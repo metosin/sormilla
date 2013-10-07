@@ -7,11 +7,13 @@
            [javax.imageio ImageIO]
            [java.io InputStream OutputStream ByteArrayInputStream BufferedInputStream]
            [org.apache.commons.io IOUtils])
-  (:require [sormilla.bin :as bin]
+  (:require [clojure.java.io :as io]
+            [metosin.system :as system]
+            [sormilla.task :as task]
+            [sormilla.world :refer [world]]
+            [sormilla.bin :as bin]
             [sormilla.drone :as drone]
-            [sormilla.drone-comm :as comm]
-            [sormilla.system :refer [run? status]]
-            [clojure.java.io :as io]))
+            [sormilla.drone-comm :as comm]))
 
 (set! *warn-on-reflection* true)
 
@@ -86,30 +88,42 @@
          ~@body)
        (when v# (recur)))))
 
-(defn init-video-streaming! []
-  (future
-    (try
-      (while (run?)          
-        (let [socket      (open-socket)
-              out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
-              reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
-              decoder     (make-decoder)]
-          (try
-            (doto (.getOutputStream socket)
-              (.write (byte-array (map bin/ubyte [1 0 0 0])))
-              (.flush))
-            (while (run?)
-              (let [data (reader)]
+(defn video-streaming []
+  (try
+    (while true          
+      (let [socket      (open-socket)
+            out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
+            reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
+            decoder     (make-decoder)]
+        (try
+          (doto (.getOutputStream socket)
+            (.write (byte-array (map bin/ubyte [1 0 0 0])))
+            (.flush))
+          (while true
+            (let [data (reader)]
                 (send-off out save data)
-                (swap! status assoc :image (decoder (second data)))))
-            (catch java.io.IOException e
-              (println "I/O error:" e ": reconnecting...")
-              (Thread/sleep 1000))
-            (finally
-              (try (.close socket) (catch Exception _))
-              (try (.close ^OutputStream @out) (catch Exception _))))))
-      (catch Throwable e
-        (println "exception while processing video stream" e)
-        (.printStackTrace e)))))
+                (swap! world assoc :image (decoder (second data)))))
+          (catch java.io.IOException e
+            (println "I/O error:" e ": reconnecting...")
+            (Thread/sleep 1000))
+          (finally
+            (try (.close socket) (catch Exception _))
+            (try (.close ^OutputStream @out) (catch Exception _))))))
+    (catch Throwable e
+      (println "exception while processing video stream" e)
+      (.printStackTrace e))))
+
+;;
+;; ============================================================================
+;; Lifecycle:
+;; ============================================================================
+;;
+
+(def service (reify system/Service
+               (start! [this config]
+                 (task/submit :video video-streaming)
+                 config)
+               (stop! [this]
+                 (task/cancel :video))))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v

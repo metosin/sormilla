@@ -1,69 +1,12 @@
 (ns sormilla.swing
   (:require [clojure.java.io :as io]
-            [sormilla.system :refer [run?]])
-  (:import [java.awt Graphics2D Shape Canvas Color KeyboardFocusManager KeyEventDispatcher Toolkit Dimension]
+            [sormilla.world :refer [world]])
+  (:import [java.awt Graphics2D Shape Color KeyboardFocusManager KeyEventDispatcher Toolkit]
            [java.awt.geom Path2D$Double Ellipse2D$Double]
-           [java.awt.event KeyEvent]
-           [javax.swing JFrame SwingUtilities]))
+           [java.awt.event KeyEvent]))
 
 (set! *warn-on-reflection* true)
 
-(defn ->safe [throttle f]
-  (fn [& args]
-    (try
-      (apply f args)
-      (catch Throwable e
-        (println "error:" e)
-        (.printStackTrace e)
-        (Thread/sleep throttle)
-        nil))))
-
-(defn make-frame [render & {:keys [interval safe safe-throttle max-size top exit-on-close] :or {interval 50 safe-throttle 500 max-size false}}]
-  (let [frame (JFrame.)
-        canvas (Canvas.)
-        render (if safe (->safe safe-throttle render) render)]
-    (.setIgnoreRepaint frame true)
-    (.setIgnoreRepaint canvas true)
-    (.add frame canvas)
-    (.setSize canvas 672 418)
-    (.pack frame)
-    (let [screen-size (.getScreenSize (Toolkit/getDefaultToolkit))]
-      (.setLocation frame (- (.width screen-size) 672) 0))
-    (if max-size
-      (.setExtendedState frame JFrame/MAXIMIZED_BOTH))
-    (when top
-      (.setAlwaysOnTop frame true))
-    (when exit-on-close
-      (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
-    (.setVisible frame true)
-    (.createBufferStrategy canvas 2)
-    (future
-      (let [strategy (.getBufferStrategy canvas)]
-        (try
-          (while (run?)
-            (let [start (System/currentTimeMillis)]
-              (loop [contents-lost? true]
-                (loop [restored? true]
-                  (let [g (.getDrawGraphics strategy)]
-                    (render g (.getWidth canvas) (.getHeight canvas))
-                    (.dispose g))
-                  (when (.contentsRestored strategy) (recur true)))
-                (.show strategy)
-                (when (.contentsLost strategy) (recur true)))
-              (let [time-left (- interval (- (System/currentTimeMillis) start))]
-                (when (pos? time-left)
-                  (Thread/sleep time-left)))))
-          (SwingUtilities/invokeLater
-            (fn [] (.setVisible frame false)))
-          (catch Throwable e
-            (println "Oh shit!" e)
-            (throw e)))))
-    frame))
-
-(defn close! [^JFrame frame]
-  (SwingUtilities/invokeLater
-    (fn []
-      (.setVisible frame false))))
 
 (defn ->shape ^Shape [& [x y & points]]
   (let [p (Path2D$Double.)]
@@ -82,19 +25,18 @@
   `(let [a# (.getTransform ~g)]
      (do ~@body)
      (.setTransform ~g a#)))
+
 ;;
 ;; Keys
 ;;
 
-(def key-codes [37 :left
-                38 :up
-                39 :right
-                40 :down
-                27 :esc
-                32 :space
-                10 :enter])
-
-(doseq [[key-code key-name] (partition 2 key-codes)]
+(doseq [[key-code key-name] (partition 2 [37 :left
+                                          38 :up
+                                          39 :right
+                                          40 :down
+                                          27 :esc
+                                          32 :space
+                                          10 :enter])]
   (intern *ns* (symbol (str "key-" (name key-name))) key-code))
 
 (def key-types {KeyEvent/KEY_TYPED     :typed
@@ -129,3 +71,6 @@
 (defn remove-key-listener! [event]
   (swap! key-listeners dissoc event))
 
+(doseq [[code key-name] (partition 2 [key-left :left key-right :right key-up :up key-down :down])]
+  (add-key-listener! {:type :pressed :code code} (fn [_] (swap! world assoc-in [:keys key-name] true)))
+  (add-key-listener! {:type :released :code code} (fn [_] (swap! world assoc-in [:keys key-name] false))))

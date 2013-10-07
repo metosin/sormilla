@@ -1,7 +1,9 @@
 (ns sormilla.drone
-  (:require [sormilla.drone-comm :as comm]
+  (:require [metosin.system :as system]
+            [sormilla.task :as task]
+            [sormilla.world :refer [world]]
+            [sormilla.drone-comm :as comm]
             [sormilla.drone-navdata :as navdata]
-            [sormilla.system :refer [task] :as system]
             [sormilla.math :as math]
             [sormilla.swing :as swing]))
 
@@ -19,13 +21,13 @@
                         comm/leds-active]))
 
 (swing/add-key-listener! {:type :pressed :code swing/key-space}
-  (fn [_] (swap! system/status toggle-fly)))
+  (fn [_] (swap! world toggle-fly)))
 
 (swing/add-key-listener! {:type :pressed :code swing/key-esc :ctrl false}
-  (fn [_] (swap! system/status assoc-in [:intent :intent-state] :emergency)))
+  (fn [_] (swap! world assoc-in [:intent :intent-state] :emergency)))
 
 (swing/add-key-listener! {:type :pressed :code swing/key-esc :ctrl true}
-  (fn [_] (swap! system/status assoc-in [:intent :intent-state] :init)))
+  (fn [_] (swap! world assoc-in [:intent :intent-state] :init)))
 
 (swing/add-key-listener! {:type :pressed :code (int \T)}
   (fn [_] (comm/send-commands! [comm/trim])))
@@ -83,18 +85,28 @@
       comm/hover
       (comm/move p r y a))))
 
-(defn upstream [status]
-  (when-let [command (or (control-state-command status) (move-command status))]
-    (comm/send-commands! [command])))
+(defn upstream []
+  (let [w @world]
+    (when-let [command (or (control-state-command w) (move-command w))]
+      (comm/send-commands! [command]))))
 
-(defn telemetry [_]
-  (navdata/get-nav-data)
-  #_{:pitch    0.2
-   :yaw      0.0
-   :roll     0.2
-   :alt    758.0
-   :vel-x    0.0
-   :vel-y    0.0
-   :vel-z    0.0
-   :control-state :landed
-   :battery-percent 25.1})
+(defn telemetry []
+  #_(navdata/get-nav-data)
+  (swap! world assoc :telemetry {:pitch            0.3
+                                 :yaw              0.0
+                                 :roll             0.4
+                                 :alt           1358.0
+                                 :vel-x            0.0
+                                 :vel-y            0.0
+                                 :vel-z            0.0
+                                 :control-state    :landed
+                                 :battery-percent  25.1}))
+
+(def service (reify system/Service
+               (start! [this config]
+                 (task/schedule :upstream #'upstream :interval 60)
+                 (task/schedule :telemetry #'telemetry :interval 100)
+                 config)
+               (stop! [this]
+                 (task/cancel :upstream)
+                 (task/cancel :telemetry))))

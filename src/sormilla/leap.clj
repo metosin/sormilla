@@ -1,6 +1,9 @@
 (ns sormilla.leap
-  (:require [sormilla.math :as math])
-  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable]))
+  (:require [metosin.system :as system]
+            [sormilla.task :as task]
+            [sormilla.world :refer [world]]
+            [sormilla.math :as math])
+  (:import [com.leapmotion.leap Controller Hand Finger FingerList Vector]))
 
 (set! *warn-on-reflection* true)
 
@@ -30,20 +33,43 @@
             (math/averager 10)
             (math/clip-to-zero 0.15)))
 
-(defn ->hand [^Hand hand]
+(defn aim [^Hand hand]
   (let [fingers  (.fingers hand)
-        aim      (-> fingers middle-finger direction)]
-    (when aim
+        dir      (-> fingers middle-finger direction)]
+    (when dir
       {:quality       (.count fingers)
-       :pitch         (-> aim .pitch pitch)
-       :yaw           (-> aim .yaw yaw)
+       :pitch         (-> dir .pitch pitch)
+       :yaw           (-> dir .yaw yaw)
        :roll          (-> hand .palmNormal .roll roll)})))
 
-(defonce ^Controller connection (Controller.))
+(def controller (atom nil))
 
-(defn leap [_]
-  (when (.isConnected connection)
-    (let [hands       (-> connection .frame .hands) 
-          hand-count  (.count hands)]
-      (when (pos? (.count hands))
-        (->hand (.leftmost hands))))))
+(defn get-hand []
+  (some-> controller
+    (deref)
+    (as-> ^Controller c (when (.isConnected c) c))
+    (.frame)
+    (.hands)
+    (.leftmost)
+    (aim)))
+
+(defn leap-task []
+  (swap! world assoc :leap (get-hand)))
+
+;;
+;; ============================================================================
+;; Lifecycle:
+;; ============================================================================
+;;
+
+(def service (reify system/Service
+               (start! [this config]
+                 (reset! controller (Controller.))
+                 (task/schedule :leap #'leap-task)
+                 config)
+               (stop! [this]
+                 (task/cancel :leap)
+                 (when-let [c ^Controller @controller]
+                   (reset! controller nil)
+                   (.delete c)))))
+

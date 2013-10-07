@@ -1,12 +1,16 @@
-(ns sormilla.main
+(ns sormilla.mainx
+  )
+
+(comment
+
   (:require [sormilla.system :refer [task] :as system]
             [sormilla.leap :as leap]
             [sormilla.drone :as drone]
             [sormilla.drone-comm :as comm]
             [sormilla.video :as video]
             [sormilla.swing :as swing]
-            [sormilla.gui :as gui]))
-
+            [sormilla.gui :as gui])
+  
 (defn -main [& args]
   (println "starting...")
   (task 60 drone/upstream)
@@ -20,18 +24,16 @@
   (system/shutdown!)
   (System/exit 0))
 
-(comment
-  (task 60 drone/upstream)
-  (task 100 drone/telemetry)
-  (task 50 leap/leap)
-  (swing/make-frame #'gui/render :safe true :top true)
-  (video/init-video-streaming!)
+(task 60 drone/upstream)
+(task 100 drone/telemetry)
+(task 50 leap/leap)
+(swing/make-frame #'gui/render :safe true :top true)
+(video/init-video-streaming!)
 
-  (system/shutdown!)
-  (reset! system/status {:run true})
+(system/shutdown!)
+(reset! system/status {:run true})
 
-  (comm/send-commands! [comm/leds-active])
-  (comm/send-commands! [comm/video-to-usb-off])
+(comm/send-commands! [comm/leds-active])
+(comm/send-commands! [comm/video-to-usb-off])
+
 )
-
-"application ready"

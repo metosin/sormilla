@@ -1,7 +1,10 @@
 (ns sormilla.gui
-  (:require [sormilla.system :refer [status] :as system]
-            [sormilla.swing :refer [with-transforms] :as swing])
-  (:import [java.awt Color Graphics2D RenderingHints Image]))
+  (:require [metosin.system :as system]
+            [sormilla.world :refer [world]]
+            [sormilla.swing :refer [with-transforms] :as swing]
+            [sormilla.task :as task])
+  (:import [java.awt Graphics2D Canvas Color Toolkit RenderingHints Image]
+           [javax.swing JFrame SwingUtilities]))
 
 (set! *warn-on-reflection* true)
 
@@ -23,12 +26,8 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(doseq [[code key-name] (partition 2 [swing/key-left :left swing/key-right :right swing/key-up :up swing/key-down :down])]
-  (swing/add-key-listener! {:type :pressed :code code} (fn [_] (swap! status assoc-in [:keys key-name] true)))
-  (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys key-name] false))))
-
 (defn render [^Graphics2D g ^long w ^long h]
-  (let [{:keys [leap telemetry keys intent ^Image image]} @status
+  (let [{:keys [leap telemetry keys intent ^Image image]} @world
         now    (System/currentTimeMillis)
         w2     (/ w 2.0)
         w6     (/ w 6.0)
@@ -123,3 +122,64 @@
         (let [alt-box (* h (/ alt 3000.0))]
           (.setColor g alt-color)
           (.fillRect g (- w 40) (- h alt-box) 40 alt-box))))))
+
+;;
+;; Frame:
+;;
+
+(defprotocol IFrame
+  (paint [this renderer])
+  (close [this]))
+
+(defrecord Frame [^JFrame frame ^Canvas canvas]
+  IFrame
+  (paint [this renderer]
+    (let [strategy (.getBufferStrategy canvas)
+          g (.getDrawGraphics strategy)]
+      (try
+        (renderer g (.getWidth canvas) (.getHeight canvas))
+        (.show strategy)
+        (finally
+          (.dispose g)))))
+  (close [this]
+    (SwingUtilities/invokeLater
+      (fn [] (.setVisible frame false)))))
+
+(defn ^IFrame make-frame [& {:keys [max-size top exit-on-close]}]
+  (let [frame (JFrame.)
+        canvas (Canvas.)]
+    (.setIgnoreRepaint frame true)
+    (.setIgnoreRepaint canvas true)
+    (.add frame canvas)
+    (.setSize canvas 672 418)
+    (.pack frame)
+    (let [screen-size (.getScreenSize (Toolkit/getDefaultToolkit))]
+      (.setLocation frame (- (.width screen-size) 672) 0))
+    (when max-size
+      (.setExtendedState frame JFrame/MAXIMIZED_BOTH))
+    (when top
+      (.setAlwaysOnTop frame true))
+    (when exit-on-close
+      (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
+    (.setVisible frame true)
+    (.createBufferStrategy canvas 2)
+    (->Frame frame canvas)))
+
+;; 
+;; =================================================================================
+;; Lifecycle:
+;; =================================================================================
+;;
+
+(def service (reify
+               system/Service
+               (start! [this config]
+                 (let [frame (make-frame :top true)
+                       task  (task/schedule :gui (fn [] (paint frame render)))]
+                   (future
+                     (try
+                       (deref task)
+                       (catch Exception _))
+                     (close frame))))
+               (stop! [this]
+                 (task/cancel :gui))))

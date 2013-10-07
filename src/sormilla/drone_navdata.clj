@@ -1,5 +1,6 @@
 (ns sormilla.drone-navdata
-  (:require [sormilla.bin :refer :all])
+  (:require [metosin.system :as system]
+            [sormilla.bin :refer :all])
   (:import [java.net InetAddress DatagramPacket DatagramSocket]))
 
 (set! *warn-on-reflection* true)
@@ -156,16 +157,33 @@
     (parse-nav-state (get-int navdata 4))
     (parse-options navdata 16 {})))
 
-(defonce ^DatagramSocket nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
+(def nav-socket (atom nil))
+
 (def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))
 (def trigger (DatagramPacket. (byte-array (map ubyte [1 0 0 0])) 4 drone-ip 5554))
 
 (defn get-nav-data []
   (try
     (let [packet (DatagramPacket. (byte-array 1024) 1024)]
-      (doto nav-socket
+      (doto ^DatagramSocket @nav-socket
         (.send trigger)
         (.receive packet))
       (parse-navdata (.getData packet)))
     (catch java.net.SocketTimeoutException e
       nil)))
+
+;;
+;; ============================================================================
+;; Lifecycle:
+;; ============================================================================
+;;
+
+(def service (reify system/Service
+               (start! [this config]
+                 (.stop! this)
+                 (reset! nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
+                 config)
+               (stop! [this]
+                 (when-let [s ^DatagramSocket @nav-socket]
+                   (reset! nav-socket nil)
+                   (try (.close s) (catch java.io.IOException _))))))
