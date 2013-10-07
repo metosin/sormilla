@@ -40,8 +40,8 @@
     (catch java.io.EOFException _
       nil)))
 
-(defn load-frames []
-  (with-open [i (io/input-stream (io/file "capture.h264"))]
+(defn load-frames [source]
+  (with-open [i (io/input-stream (io/file source))]
     (doall (take-while identity (repeatedly (partial read-frame i))))))
 
 (defn serve-client! [^Socket s frames]
@@ -72,7 +72,7 @@
 
 (defn -main [& args]
   (println "video server initializing....")
-  (let [frames (load-frames)]
+  (let [frames (load-frames (or (first args) "capture.h264"))]
     (println "Loaded " (count frames) "frames.")
     (println "Server starting...")
     (start-server! frames)
