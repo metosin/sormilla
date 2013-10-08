@@ -9,9 +9,11 @@
 
 (set-refresh-dirs "./src" "./dev")
 
-(defn restart []
+(def base-config {:video-sim true})
+
+(defn restart [& [config]]
   (stop!)
-  (start!))
+  (start! (merge base-config config)))
 
 (defn reset []
   (stop!)
