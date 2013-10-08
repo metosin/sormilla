@@ -92,9 +92,11 @@
          ~@body)
        (when v# (recur)))))
 
+(def run (atom false))
+
 (defn video-streaming []
   (try
-    (while true          
+    (while @run
       (let [socket      (open-socket)
             out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
             reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
@@ -103,7 +105,7 @@
           (doto (.getOutputStream socket)
             (.write (byte-array (map bin/ubyte [1 0 0 0])))
             (.flush))
-          (while true
+          (while @run
             (let [data (reader)]
                 (send-off out save data)
                 (swap! world assoc :image (decoder (second data)))))
@@ -125,10 +127,14 @@
 
 (def service (reify system/Service
                (start! [this config]
-                 (reset! video-source (if (:video-sim config) (InetAddress/getByName "localhost") comm/drone-ip))
+                 (reset! run true)
+                 (reset! video-source (if (:video-sim config)
+                                        (do (println "Using simulated video") (InetAddress/getByName nil))
+                                        (do (println "Real video") comm/drone-ip)))
                  (task/submit :video video-streaming)
                  config)
                (stop! [this]
+                 (reset! run false)
                  (task/cancel :video))))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v
