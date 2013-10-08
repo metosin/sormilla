@@ -180,6 +180,7 @@
                      (try
                        (deref task)
                        (catch Exception _))
-                     (close frame))))
+                     (close frame)))
+                 config)
                (stop! [this]
                  (task/cancel :gui))))
