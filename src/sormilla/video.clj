@@ -18,6 +18,12 @@
 
 (set! *warn-on-reflection* true)
 
+(defmacro while-let [[l r] & body]
+  `(loop [~l ~r]
+     (when ~l
+       ~@body
+       (recur ~r))))
+
 (defn read-fully [^InputStream in ^bytes buffer ^long offset ^long size]
   (IOUtils/readFully in buffer offset size)
   buffer)
