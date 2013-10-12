@@ -19,9 +19,8 @@
 (set! *warn-on-reflection* true)
 
 (defn ba->ia [^bytes source ^ints target ^Long size]
-  (loop [i 0]
-    (aset-int target i (bit-and 0xFF (aget source i)))
-    (when (< (inc i) size) (recur (inc i))))
+  (doseq [i (range size)]
+    (aset-int target i (bit-and 0xFF (aget source i))))
   target)
 
 (defn read-fully [^InputStream in ^bytes buffer ^long offset ^long size]
@@ -84,13 +83,6 @@
   (doseq [[buffer size] data]
     (.write out buffer 0 size))
   out)
-
-(defmacro while-let [[l r] & body]
-  `(loop []
-     (when-let [v# ~r]
-       (let [~l v#]
-         ~@body)
-       (when v# (recur)))))
 
 (def run (atom false))
 
