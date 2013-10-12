@@ -12,16 +12,11 @@
             [metosin.system :as system]
             [sormilla.task :as task]
             [sormilla.world :refer [world]]
-            [sormilla.bin :as bin]
+            [sormilla.bin :as bin :refer [ba->ia]]
             [sormilla.drone :as drone]
             [sormilla.drone-comm :as comm]))
 
 (set! *warn-on-reflection* true)
-
-(defn ba->ia [^bytes source ^ints target ^Long size]
-  (doseq [i (range size)]
-    (aset-int target i (bit-and 0xFF (aget source i))))
-  target)
 
 (defn read-fully [^InputStream in ^bytes buffer ^long offset ^long size]
   (IOUtils/readFully in buffer offset size)
