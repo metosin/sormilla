@@ -24,7 +24,8 @@
   target)
 
 (defn read-fully [^InputStream in ^bytes buffer ^long offset ^long size]
-  (IOUtils/readFully in buffer offset size))
+  (IOUtils/readFully in buffer offset size)
+  buffer)
 
 (defn make-reader [^InputStream in]
   (fn []
@@ -34,11 +35,11 @@
         (read-fully in header 0 12)
         (let [signature    (bin/get-int header 0)
               header-size  (bin/get-short header 6)
-              payload-size (bin/get-int header 8)]
+              payload-size (bin/get-int header 8)
+              payload      (byte-array payload-size)]
           (when-not (= signature 0x45566150) (throw (java.io.IOException. (format "out of sync (0x%08X)" signature))))
           (read-fully in header 12 (- header-size 12))
-          (read-fully in payload 0 payload-size)
-          [[header header-size] [payload payload-size]])
+          (read-fully in payload 0 payload-size))
         (catch java.io.EOFException _
           nil)))))
 
@@ -54,22 +55,21 @@
     (if (neg? (.avcodec_open context codec)) (throw (Exception. "Could not open codec")))
     (.av_init_packet packet)
 
-    (fn ^BufferedImage [[^bytes buffer size]]
-      (set! (.size packet) size)
-      (set! (.data_base packet) (ba->ia buffer ibuffer size))
-      (set! (.data_offset packet) 0)
-      
-      (.avcodec_decode_video2 context frame got-picture? packet)
-      (when (zero? (first got-picture?)) (throw (java.io.IOException. "Could not decode frame")))
-      
-      (let [picture         (.displayPicture (.priv_data context))
-            width           (.imageWidth picture)
-            height          (.imageHeight picture)
-            picture-buffer  (int-array (* width height))
-            image           (BufferedImage. width height BufferedImage/TYPE_INT_RGB)]
-        (FrameUtils/YUV2RGB picture picture-buffer)
-        (.setRGB image 0 0 width height picture-buffer 0 width)
-        image))))
+    (fn ^BufferedImage [^bytes buffer]
+      (let [size (alength buffer)]
+        (set! (.size packet) size)
+        (set! (.data_base packet) (ba->ia buffer ibuffer size))
+        (set! (.data_offset packet) 0)
+        (.avcodec_decode_video2 context frame got-picture? packet)
+        (when (zero? (first got-picture?)) (throw (java.io.IOException. "Could not decode frame")))
+        (let [picture         (.displayPicture (.priv_data context))
+              width           (.imageWidth picture)
+              height          (.imageHeight picture)
+              picture-buffer  (int-array (* width height))
+              image           (BufferedImage. width height BufferedImage/TYPE_INT_RGB)]
+          (FrameUtils/YUV2RGB picture picture-buffer)
+          (.setRGB image 0 0 width height picture-buffer 0 width)
+          image)))))
 
 (def video-source (atom nil))
 
@@ -79,34 +79,28 @@
     (.setSoTimeout 2000)
     (.connect (InetSocketAddress. ^InetAddress @video-source 5555))))
 
-(defn save [^OutputStream out data]
-  (doseq [[buffer size] data]
-    (.write out buffer 0 size))
-  out)
-
 (def run (atom false))
 
-(defn video-streaming []
+(defn send-init-video [^Socket socket]
+  (doto (.getOutputStream socket)
+    (.write (byte-array (map bin/ubyte [1 0 0 0])))
+    (.flush)))
+
+(defn video-streaming-task []
   (try
     (while @run
       (let [socket      (open-socket)
-            out         (agent (io/output-stream (io/file (str "sormilla-" (.format (java.text.SimpleDateFormat. "yyyyMMdd-HHmmss") (java.util.Date.)) ".h264"))))
-            reader      (make-reader (BufferedInputStream. (.getInputStream socket)))
+            reader      (make-reader (-> socket .getInputStream BufferedInputStream.))
             decoder     (make-decoder)]
         (try
-          (doto (.getOutputStream socket)
-            (.write (byte-array (map bin/ubyte [1 0 0 0])))
-            (.flush))
+          (send-init-video socket)
           (while @run
-            (let [data (reader)]
-                (send-off out save data)
-                (swap! world assoc :image (decoder (second data)))))
+            (->> (reader) (decoder) (swap! world assoc :image)))
           (catch java.io.IOException e
             (println "I/O error:" e ": reconnecting...")
             (Thread/sleep 1000))
           (finally
-            (try (.close socket) (catch Exception _))
-            (try (.close ^OutputStream @out) (catch Exception _))))))
+            (try (.close socket) (catch Exception _))))))
     (catch Throwable e
       (println "exception while processing video stream" e)
       (.printStackTrace e))))
@@ -121,9 +115,9 @@
                (start! [this config]
                  (reset! run true)
                  (reset! video-source (if (:video-sim config)
-                                        (do (println "Using simulated video") (InetAddress/getByName nil))
-                                        (do (println "Real video") comm/drone-ip)))
-                 (task/submit :video video-streaming)
+                                        (InetAddress/getByName nil)
+                                        comm/drone-ip))
+                 (task/submit :video video-streaming-task)
                  config)
                (stop! [this]
                  (reset! run false)
