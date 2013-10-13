@@ -28,3 +28,7 @@
 (defn open-video-socket ^Socket [^InetAddress addr]
   (when-let [socket (open-socket addr 5555)]
     (write-to-socket socket 1 0 0 0)))
+
+(defn close-socket! [^Socket socket]
+  (when socket
+    (try (.close socket) (catch Exception _))))

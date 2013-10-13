@@ -103,10 +103,10 @@
       (println "video: cleanup...")
       (async/close! frame-ch)
       (async/close! image-ch)
-      (try (.close ^Socket socket) (catch Exception _))
+      (io-utils/close-socket! socket)
       (when-not (= ch cancel-ch)
+        (println "video: reconnecting in 1 sec...")
         (Thread/sleep 1000)
-        (println "video: reconnecting...")
         (recur)))))
 
 ;;
