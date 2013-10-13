@@ -12,9 +12,12 @@
   (IOUtils/skipFully in size))
 
 (defn open-socket ^Socket [^InetAddress addr port]
-  (doto (Socket.)
-    (.setSoTimeout 2000)
-    (.connect (InetSocketAddress. addr port))))
+  (try
+    (doto (Socket.)
+      (.setSoTimeout 2000)
+      (.connect (InetSocketAddress. addr port)))
+    (catch java.net.ConnectException _
+      nil)))
 
 (defn write-to-socket ^Socket [^Socket socket & data]
   (doto (.getOutputStream socket)
@@ -23,5 +26,5 @@
   socket)
 
 (defn open-video-socket ^Socket [^InetAddress addr]
-  (doto (open-socket addr 5555)
-    (write-to-socket 1 0 0 0)))
+  (when-let [socket (open-socket addr 5555)]
+    (write-to-socket socket 1 0 0 0)))

@@ -71,12 +71,12 @@
      (try
        ~@body
        (catch Throwable e#
-         (println "exception in thread:")
+         (println "exception in thread:" e#)
          (.printStackTrace e#)
          nil))))
 
 (defn read-frame-task [^Socket socket frame-ch]
-  (let [frame-reader (-> socket .getInputStream BufferedInputStream. make-frame-reader)]
+  (when-let [frame-reader (some-> socket .getInputStream BufferedInputStream. make-frame-reader)]
     (while-let [frame (frame-reader)]
       (>!! frame-ch frame))))
 
