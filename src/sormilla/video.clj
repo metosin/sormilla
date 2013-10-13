@@ -95,7 +95,7 @@
     (println "video: connecting...")
     (let [socket   (io-utils/open-video-socket #_ comm/drone-ip (InetAddress/getByName nil))
           frame-ch (async/chan (async/sliding-buffer 10))
-          image-ch (async/chan (async/sliding-buffer 10))
+          image-ch (async/chan (async/sliding-buffer 1))
           [v ch]   (alts!! [cancel-ch
                             (thread* (read-frame-task socket frame-ch))
                             (thread* (decode-frame-task frame-ch image-ch))
