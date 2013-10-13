@@ -100,7 +100,7 @@
                             (thread* (read-frame-task socket frame-ch))
                             (thread* (decode-frame-task frame-ch image-ch))
                             (thread* (update-image-task image-ch))])]
-      (println "video: cleanup..." (= ch cancel-ch))
+      (println "video: cleanup...")
       (async/close! frame-ch)
       (async/close! image-ch)
       (try (.close ^Socket socket) (catch Exception _))
