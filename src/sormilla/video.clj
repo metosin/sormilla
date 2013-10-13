@@ -123,9 +123,10 @@
                    (thread* (video-streaming-task ch))
                    (reset! cancel-ch ch))
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (when-let [ch @cancel-ch]
                    (async/close! ch)
-                   (reset! cancel-ch nil)))))
+                   (reset! cancel-ch nil))
+                 config)))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v

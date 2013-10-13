@@ -68,9 +68,10 @@
                  (reset! controller (Controller.))
                  (task/schedule :leap 50 #'leap-task)
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (task/cancel :leap)
                  (when-let [c ^Controller @controller]
                    (reset! controller nil)
-                   (.delete c)))))
+                   (.delete c))
+                 config)))
 

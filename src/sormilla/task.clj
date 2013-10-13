@@ -45,13 +45,14 @@
 
 (def service (reify system/Service
                (start! [this config]
-                 (.stop! this)
+                 (.stop! this {})
                  (reset! executor (Executors/newScheduledThreadPool 4))
                  (reset! tasks {})
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (when-let [es @executor]
                    (reset! executor nil)
                    (.shutdown es))
                  (doseq [id (keys @tasks)]
-                   (cancel id)))))
+                   (cancel id))
+                 config)))

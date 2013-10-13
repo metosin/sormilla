@@ -182,5 +182,6 @@
                        (catch Exception _))
                      (close frame)))
                  config)
-               (stop! [this]
-                 (task/cancel :gui))))
+               (stop! [this config]
+                 (task/cancel :gui)
+                 config)))
