@@ -175,7 +175,7 @@
                system/Service
                (start! [this config]
                  (let [frame (make-frame :top true)
-                       task  (task/schedule :gui (fn [] (paint frame render)))]
+                       task  (task/schedule :gui 50 paint frame render)]
                    (future
                      (try
                        (deref task)

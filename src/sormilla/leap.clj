@@ -66,7 +66,7 @@
 (def service (reify system/Service
                (start! [this config]
                  (reset! controller (Controller.))
-                 (task/schedule :leap #'leap-task :interval 50)
+                 (task/schedule :leap 50 #'leap-task)
                  config)
                (stop! [this]
                  (task/cancel :leap)
