@@ -31,6 +31,11 @@
       (.put (ubyte (bit-and 0xFF v))))
     (.array buffer)))
 
+(defn ba->ia [^bytes source ^ints target ^Long size]
+  (doseq [i (range size)]
+    (aset-int target i (bit-and 0xFF (aget source i))))
+  target)
+
 (defn get-int [buff offset]
   (bit-or
     (bit-and (nth buff offset) 0xFF)

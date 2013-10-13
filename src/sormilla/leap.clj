@@ -20,17 +20,18 @@
 
 (def pitch (comp
              (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
-             (math/averager 10)
+             (math/averager 5)
              (math/clip-to-zero 0.15)))
 
 (def yaw (comp
            (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
-           (math/averager 10)
+           (math/averager 5)
            (math/clip-to-zero 0.15)))
 
 (def roll (comp
             -
-            (math/averager 10)
+            (partial * 0.8)
+            (math/averager 5)
             (math/clip-to-zero 0.15)))
 
 (defn aim [^Hand hand]
@@ -65,11 +66,12 @@
 (def service (reify system/Service
                (start! [this config]
                  (reset! controller (Controller.))
-                 (task/schedule :leap #'leap-task)
+                 (task/schedule :leap 50 #'leap-task)
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (task/cancel :leap)
                  (when-let [c ^Controller @controller]
                    (reset! controller nil)
-                   (.delete c)))))
+                   (.delete c))
+                 config)))
 

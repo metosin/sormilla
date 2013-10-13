@@ -13,4 +13,5 @@
                (start! [this config]
                  (reset! world {})
                  config)
-               (stop! [this])))
+               (stop! [this config]
+                 config)))

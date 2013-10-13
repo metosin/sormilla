@@ -104,9 +104,10 @@
 
 (def service (reify system/Service
                (start! [this config]
-                 (task/schedule :upstream #'upstream :interval 60)
-                 (task/schedule :telemetry #'telemetry :interval 100)
+                 (task/schedule :upstream 60 #'upstream)
+                 (task/schedule :telemetry 100 #'telemetry)
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (task/cancel :upstream)
-                 (task/cancel :telemetry))))
+                 (task/cancel :telemetry)
+                 config)))

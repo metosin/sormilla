@@ -5,10 +5,10 @@
 (defonce ^:private tasks (atom {}))
 (defonce ^:private executor (atom nil))
 
-(defn wrap-task [id task-fn]
+(defn wrap-task [id task-fn args]
   (fn []
     (try
-      (task-fn)
+      (apply task-fn args)
       (catch Exception e
         (println "task failure:" id)
         (.printStackTrace e)
@@ -19,22 +19,23 @@
     (swap! tasks dissoc id)
     (.cancel f true)))
 
-(defn- execute [execute-fn id task-fn]
+(defn- execute [execute-fn id task-fn args]
   (cancel id)
   (let [e @executor
-        t (wrap-task id task-fn)
+        t (wrap-task id task-fn args)
         f (execute-fn e t)]
     (swap! tasks assoc id f)
     f))
 
-(defn submit [id task-fn]
-  (execute (fn [e t] (.submit e t)) id task-fn))
+(defn submit [id task-fn & args]
+  (execute (fn [e t] (.submit e t)) id task-fn args))
 
-(defn schedule [id task-fn & {:keys [interval] :or {interval 100}}]
+(defn schedule [id interval task-fn & args]
   (execute
     (fn [e t] (.scheduleAtFixedRate e t interval interval TimeUnit/MILLISECONDS))
     id
-    task-fn))
+    task-fn
+    args))
 
 ;;
 ;; ============================================================================
@@ -44,13 +45,14 @@
 
 (def service (reify system/Service
                (start! [this config]
-                 (.stop! this)
+                 (.stop! this {})
                  (reset! executor (Executors/newScheduledThreadPool 4))
                  (reset! tasks {})
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (when-let [es @executor]
                    (reset! executor nil)
                    (.shutdown es))
                  (doseq [id (keys @tasks)]
-                   (cancel id)))))
+                   (cancel id))
+                 config)))

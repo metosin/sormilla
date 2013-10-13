@@ -17,6 +17,6 @@
 
 (defn reset []
   (stop!)
-  (refresh :after 'sormilla.system/start!))
+  (refresh :after 'sormilla.system/start!)) ; FIXME: config?
 
 "commence hacking"

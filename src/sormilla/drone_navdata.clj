@@ -180,10 +180,11 @@
 
 (def service (reify system/Service
                (start! [this config]
-                 (.stop! this)
+                 (.stop! this {})
                  (reset! nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
                  config)
-               (stop! [this]
+               (stop! [this config]
                  (when-let [s ^DatagramSocket @nav-socket]
                    (reset! nav-socket nil)
-                   (try (.close s) (catch java.io.IOException _))))))
+                   (try (.close s) (catch java.io.IOException _)))
+                 config)))

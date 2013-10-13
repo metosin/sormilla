@@ -30,7 +30,7 @@
   (cons (swap! command-id inc) command))
 
 (def ^InetAddress drone-ip (InetAddress/getByName "192.168.1.1"))
-(defonce at-socket (agent (doto (DatagramSocket.) (.setSoTimeout 1000))))
+(defonce at-socket (agent (doto (DatagramSocket.) (.setSoTimeout 1000)) :error-mode :continue))
 
 (defn send-packet [^DatagramSocket s ^DatagramPacket packet]
   (.send s packet)
