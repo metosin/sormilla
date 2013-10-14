@@ -44,12 +44,11 @@
 ;;
 
 (def service (reify system/Service
-               (start! [this config]
-                 (.stop! this {})
+               (start! [_ config]
                  (reset! executor (Executors/newScheduledThreadPool 4))
                  (reset! tasks {})
                  config)
-               (stop! [this config]
+               (stop! [_ config]
                  (when-let [es @executor]
                    (reset! executor nil)
                    (.shutdown es))
