@@ -40,7 +40,7 @@
     ; video feed
     (if image
       (doto g
-        (.drawImage image 0 0 nil)
+        (.drawImage image 0 0 w h 0 0 (.getWidth image nil) (.getHeight image nil) nil)
         (.setColor (Color. 0 0 0 96))
         (.fillRect 0 0 w h))
       (doto g
