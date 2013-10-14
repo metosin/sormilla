@@ -9,14 +9,12 @@
 
 (set-refresh-dirs "./src" "./dev")
 
-(def base-config {:video-sim true})
-
 (defn restart [& [config]]
   (stop!)
-  (start! (merge base-config config)))
+  (start! config))
 
 (defn reset []
   (stop!)
-  (refresh :after 'sormilla.system/start!)) ; FIXME: config?
+  (refresh :after 'sormilla.system/start!))
 
 "commence hacking"
