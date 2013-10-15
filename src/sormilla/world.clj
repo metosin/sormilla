@@ -1,7 +1,7 @@
 (ns sormilla.world
   (:require [metosin.system :as system]))
 
-(def world (atom nil))
+(def world (atom {}))
 
 ;;
 ;; ============================================================================
