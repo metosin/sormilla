@@ -10,8 +10,8 @@
 ;;
 
 (def service (reify system/Service
-               (start! [this config]
+               (start! [_ config]
                  (reset! world {})
                  config)
-               (stop! [this config]
+               (stop! [_ config]
                  config)))

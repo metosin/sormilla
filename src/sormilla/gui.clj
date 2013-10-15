@@ -13,8 +13,8 @@
 (def hud-hi-color         (Color.   64  255  64   192))
 (def hud-lo-color         (Color.   64  192  64    32))
 (def leap-color           (Color.   64  255  64   192))
-(def key-color            (Color.   64  128  64    32))
-(def telemetry-color      (Color.  255   32  32   255))
+(def key-color            (Color.  128  128  64   255))
+(def telemetry-color      (Color.  255  255  32   255))
 (def alt-color            (Color.  255   32  32   192))
 (def status-hi-color      (Color.  255  255   0   255))
 (def status-lo-color      (Color.  192  192   0   255))
@@ -40,7 +40,7 @@
     ; video feed
     (if image
       (doto g
-        (.drawImage image 0 0 nil)
+        (.drawImage image 0 0 w h 0 0 (.getWidth image nil) (.getHeight image nil) nil)
         (.setColor (Color. 0 0 0 96))
         (.fillRect 0 0 w h))
       (doto g

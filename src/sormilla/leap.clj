@@ -43,19 +43,16 @@
        :yaw           (-> dir .yaw yaw)
        :roll          (-> hand .palmNormal .roll roll)})))
 
-(def controller (atom nil))
-
-(defn get-hand []
+(defn get-hand [^Controller controller]
   (some-> controller
-    (deref)
     (as-> ^Controller c (when (.isConnected c) c))
     (.frame)
     (.hands)
     (.leftmost)
     (aim)))
 
-(defn leap-task []
-  (swap! world assoc :leap (get-hand)))
+(defn leap-task [controller]
+  (swap! world assoc :leap (get-hand controller)))
 
 ;;
 ;; ============================================================================
@@ -64,14 +61,14 @@
 ;;
 
 (def service (reify system/Service
-               (start! [this config]
-                 (reset! controller (Controller.))
-                 (task/schedule :leap 50 #'leap-task)
-                 config)
-               (stop! [this config]
-                 (task/cancel :leap)
-                 (when-let [c ^Controller @controller]
-                   (reset! controller nil)
-                   (.delete c))
-                 config)))
 
+               (start! [_ config]
+                 (let [controller (Controller.)]
+                   (task/schedule :leap 50 leap-task controller)
+                   (assoc config :leap-controller controller)))
+
+               (stop! [_ config]
+                 (task/cancel :leap)
+                 (when-let [c (:leap-controller config)]
+                   (.delete ^Controller c))
+                 (dissoc config :leap-controller))))

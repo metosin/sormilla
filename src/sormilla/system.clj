@@ -10,8 +10,8 @@
 
 (defsystem [sormilla.world/service
             sormilla.task/service
+            sormilla.leap/service
             sormilla.gui/service
             sormilla.drone-navdata/service
             sormilla.drone/service
-            sormilla.leap/service
             sormilla.video/service])

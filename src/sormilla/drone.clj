@@ -59,8 +59,8 @@
 (defn speed [s key1 key2 keys]
   (* s (key-dir [(key1 keys false) (key2 keys false)])))
 
-(def yaw-speed 0.25)
-(def alt-speed 0.35)
+(def yaw-speed 0.55)
+(def alt-speed 0.55)
 
 (def yaw (partial speed yaw-speed :left :right))
 (def alt (partial speed alt-speed :down :up))
@@ -91,10 +91,10 @@
       (comm/send-commands! [command]))))
 
 (defn telemetry []
-  #_(navdata/get-nav-data)
-  (swap! world assoc :telemetry {:pitch            0.3
+  (swap! world assoc :telemetry (navdata/get-nav-data))
+  #_(swap! world assoc :telemetry {:pitch            0.1
                                  :yaw              0.0
-                                 :roll             0.4
+                                 :roll            -0.4
                                  :alt           1358.0
                                  :vel-x            0.0
                                  :vel-y            0.0
@@ -104,8 +104,8 @@
 
 (def service (reify system/Service
                (start! [this config]
-                 (task/schedule :upstream 60 #'upstream)
-                 (task/schedule :telemetry 100 #'telemetry)
+                 (task/schedule :upstream 45 #'upstream)
+                 (task/schedule :telemetry 60 #'telemetry)
                  config)
                (stop! [this config]
                  (task/cancel :upstream)
