@@ -1,6 +1,5 @@
 (ns sormilla.drone-navdata
-  (:require [metosin.system :as system]
-            [sormilla.bin :refer :all])
+  (:require [sormilla.bin :refer :all])
   (:import [java.net InetAddress DatagramPacket DatagramSocket]))
 
 (set! *warn-on-reflection* true)
@@ -178,13 +177,13 @@
 ;; ============================================================================
 ;;
 
-(def service (reify system/Service
-               (start! [this config]
-                 (.stop! this {})
-                 (reset! nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
-                 config)
-               (stop! [this config]
-                 (when-let [s ^DatagramSocket @nav-socket]
-                   (reset! nav-socket nil)
-                   (try (.close s) (catch java.io.IOException _)))
-                 config)))
+(defn stop-subsys! [config]
+  (when-let [s ^DatagramSocket @nav-socket]
+    (reset! nav-socket nil)
+    (try (.close s) (catch java.io.IOException _)))
+  config)
+
+(defn start-subsys! [config]
+  (stop-subsys! {})
+  (reset! nav-socket (doto (DatagramSocket. 5554) (.setSoTimeout 1000)))
+  config)

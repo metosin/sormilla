@@ -8,10 +8,10 @@
             [sormilla.leap]
             [sormilla.video]))
 
-(defsystem [sormilla.world/service
-            sormilla.task/service
-            sormilla.leap/service
-            sormilla.gui/service
-            sormilla.drone-navdata/service
-            sormilla.drone/service
-            sormilla.video/service])
+(defsystem [sormilla.world
+            sormilla.task
+            sormilla.leap
+            sormilla.gui
+            sormilla.drone-navdata
+            sormilla.drone
+            sormilla.video])

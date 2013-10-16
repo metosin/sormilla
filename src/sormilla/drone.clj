@@ -1,6 +1,5 @@
 (ns sormilla.drone
-  (:require [metosin.system :as system]
-            [sormilla.task :as task]
+  (:require [sormilla.task :as task]
             [sormilla.world :refer [world]]
             [sormilla.drone-comm :as comm]
             [sormilla.drone-navdata :as navdata]
@@ -91,8 +90,8 @@
       (comm/send-commands! [command]))))
 
 (defn telemetry []
-  (swap! world assoc :telemetry (navdata/get-nav-data))
-  #_(swap! world assoc :telemetry {:pitch            0.1
+  #_(swap! world assoc :telemetry (navdata/get-nav-data))
+  (swap! world assoc :telemetry {:pitch            0.1
                                  :yaw              0.0
                                  :roll            -0.4
                                  :alt           1358.0
@@ -102,12 +101,12 @@
                                  :control-state    :landed
                                  :battery-percent  25.1}))
 
-(def service (reify system/Service
-               (start! [this config]
-                 (task/schedule :upstream 45 #'upstream)
-                 (task/schedule :telemetry 60 #'telemetry)
-                 config)
-               (stop! [this config]
-                 (task/cancel :upstream)
-                 (task/cancel :telemetry)
-                 config)))
+(defn start-subsys! [config]
+  (task/schedule :upstream 45 #'upstream)
+  (task/schedule :telemetry 60 #'telemetry)
+  config)
+
+(defn stop-subsys! [config]
+  (task/cancel :upstream)
+  (task/cancel :telemetry)
+  config)

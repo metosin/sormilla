@@ -1,6 +1,5 @@
 (ns sormilla.gui
-  (:require [metosin.system :as system]
-            [sormilla.world :refer [world]]
+  (:require [sormilla.world :refer [world]]
             [sormilla.swing :refer [with-transforms] :as swing]
             [sormilla.task :as task])
   (:import [java.awt Graphics2D Canvas Color Toolkit RenderingHints Image]
@@ -171,17 +170,17 @@
 ;; =================================================================================
 ;;
 
-(def service (reify
-               system/Service
-               (start! [this config]
-                 (let [frame (make-frame :top true)
-                       task  (task/schedule :gui 50 paint frame render)]
-                   (future
-                     (try
-                       (deref task)
-                       (catch Exception _))
-                     (close frame)))
-                 config)
-               (stop! [this config]
-                 (task/cancel :gui)
-                 config)))
+(defn start-subsys! [config]
+  (let [frame (make-frame :top true)
+        task  (task/schedule :gui 50 paint frame render)]
+    (future
+      (try
+        (deref task)
+        (catch Exception _))
+      (close frame)))
+  config)
+
+(defn stop-subsys! [config]
+  (task/cancel :gui)
+  config)
+

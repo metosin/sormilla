@@ -1,5 +1,4 @@
-(ns sormilla.world
-  (:require [metosin.system :as system]))
+(ns sormilla.world)
 
 (def world (atom {}))
 
@@ -9,9 +8,9 @@
 ;; ============================================================================
 ;;
 
-(def service (reify system/Service
-               (start! [_ config]
-                 (reset! world {})
-                 config)
-               (stop! [_ config]
-                 config)))
+(defn start-subsys! [config]
+  (reset! world {})
+  config)
+
+(defn stop-subsys! [config]
+  config)

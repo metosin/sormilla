@@ -6,7 +6,7 @@
                  [h264-decoder/h264-decoder "1.0"]
                  [amalloy/ring-buffer "1.0"]
                  [commons-io/commons-io "2.4"]
-                 [metosin/system "0.2.0-SNAPSHOT"]]
+                 [metosin/system "0.2.1"]]
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[midje "1.5.1"]

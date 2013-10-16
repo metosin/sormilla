@@ -4,17 +4,17 @@
             [clojure.pprint :refer [pprint]]
             [clojure.repl :refer :all]
             [clojure.tools.namespace.repl :refer [refresh refresh-all] :as repl]
-            [sormilla.system :refer [start! stop!]]
+            [sormilla.system :refer [start-system! stop-system!]]
             [sormilla.world :refer [world]]))
 
-(repl/set-refresh-dirs "./src" "./dev")
+(repl/set-refresh-dirs "./src")
 
-(defn restart [& [config]]
-  (stop!)
-  (start! config))
+(defn restart []
+  (stop-system!)
+  (start-system!))
 
 (defn reset []
-  (stop!)
-  (refresh :after 'sormilla.system/start!))
+  (stop-system!)
+  (refresh :after 'sormilla.system/start-system!))
 
 "commence hacking"

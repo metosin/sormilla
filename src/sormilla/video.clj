@@ -6,7 +6,6 @@
            [java.net Socket InetAddress])
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async :refer [>!! <!! alts!! go]]
-            [metosin.system :as system]
             [sormilla.world :refer [world]]
             [sormilla.bin :as bin :refer [ba->ia]]
             [sormilla.io-utils :as io-utils]
@@ -115,14 +114,14 @@
 ;; ============================================================================
 ;;
 
-(def service (reify system/Service
-               (start! [this config]
-                 (let [ch (async/chan)]
-                   (thread* (video-streaming-task ch))
-                   (assoc config :video ch)))
-               (stop! [this config]
-                 (when-let [ch (:video config)]
-                   (async/close! ch))
-                 (dissoc config :video))))
+(defn start-subsys! [config]
+  (let [ch (async/chan)]
+    (thread* (video-streaming-task ch))
+    (assoc config :video ch)))
+
+(defn stop-subsys! [config]
+  (when-let [ch (:video config)]
+    (async/close! ch))
+  (dissoc config :video))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v

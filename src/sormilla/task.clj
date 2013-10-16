@@ -1,5 +1,4 @@
 (ns sormilla.task
-  (:require [metosin.system :as system])
   (:import [java.util.concurrent Future Executors TimeUnit ExecutionException CancellationException]))
 
 (defonce ^:private tasks (atom {}))
@@ -43,15 +42,16 @@
 ;; ============================================================================
 ;;
 
-(def service (reify system/Service
-               (start! [_ config]
-                 (reset! executor (Executors/newScheduledThreadPool 4))
-                 (reset! tasks {})
-                 config)
-               (stop! [_ config]
-                 (when-let [es @executor]
-                   (reset! executor nil)
-                   (.shutdown es))
-                 (doseq [id (keys @tasks)]
-                   (cancel id))
-                 config)))
+(defn start-subsys! [config]
+  (reset! executor (Executors/newScheduledThreadPool 4))
+  (reset! tasks {})
+  config)
+
+(defn stop-subsys! [config]
+  (when-let [es @executor]
+    (reset! executor nil)
+    (.shutdown es))
+  (doseq [id (keys @tasks)]
+    (cancel id))
+  config)
+

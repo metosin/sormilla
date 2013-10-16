@@ -1,6 +1,5 @@
 (ns sormilla.leap
-  (:require [metosin.system :as system]
-            [sormilla.task :as task]
+  (:require [sormilla.task :as task]
             [sormilla.world :refer [world]]
             [sormilla.math :as math])
   (:import [com.leapmotion.leap Controller Hand Finger FingerList Vector]))
@@ -60,15 +59,14 @@
 ;; ============================================================================
 ;;
 
-(def service (reify system/Service
+(defn start-subsys! [config]
+  (let [controller (Controller.)]
+    (task/schedule :leap 50 leap-task controller)
+    (assoc config :leap-controller controller)))
 
-               (start! [_ config]
-                 (let [controller (Controller.)]
-                   (task/schedule :leap 50 leap-task controller)
-                   (assoc config :leap-controller controller)))
+(defn stop-subsys! [config]
+  (task/cancel :leap)
+  (when-let [c (:leap-controller config)]
+    (.delete ^Controller c))
+  (dissoc config :leap-controller))
 
-               (stop! [_ config]
-                 (task/cancel :leap)
-                 (when-let [c (:leap-controller config)]
-                   (.delete ^Controller c))
-                 (dissoc config :leap-controller))))
