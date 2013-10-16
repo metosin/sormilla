@@ -1,9 +1,9 @@
 (ns sormilla.gui
-  (:require [sormilla.system :refer [status] :as system]
+  (:require [sormilla.world :refer [world]]
             [sormilla.swing :refer [with-transforms] :as swing]
-            [sormilla.math :as math]
-            [sormilla.video :as video])
-  (:import [java.awt Color Graphics2D RenderingHints Image]))
+            [sormilla.task :as task])
+  (:import [java.awt Graphics2D Canvas Color Toolkit RenderingHints Image]
+           [javax.swing JFrame SwingUtilities]))
 
 (set! *warn-on-reflection* true)
 
@@ -12,8 +12,8 @@
 (def hud-hi-color         (Color.   64  255  64   192))
 (def hud-lo-color         (Color.   64  192  64    32))
 (def leap-color           (Color.   64  255  64   192))
-(def key-color            (Color.   64  128  64    32))
-(def telemetry-color      (Color.  255   32  32   255))
+(def key-color            (Color.  128  128  64   255))
+(def telemetry-color      (Color.  255  255  32   255))
 (def alt-color            (Color.  255   32  32   192))
 (def status-hi-color      (Color.  255  255   0   255))
 (def status-lo-color      (Color.  192  192   0   255))
@@ -25,12 +25,8 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(doseq [[code key-name] (partition 2 [swing/key-left :left swing/key-right :right swing/key-up :up swing/key-down :down])]
-  (swing/add-key-listener! {:type :pressed :code code} (fn [_] (swap! status assoc-in [:keys key-name] true)))
-  (swing/add-key-listener! {:type :released :code code} (fn [_] (swap! status assoc-in [:keys key-name] false))))
-
 (defn render [^Graphics2D g ^long w ^long h]
-  (let [{:keys [leap telemetry keys intent]} @status
+  (let [{:keys [leap telemetry keys intent ^Image image]} @world
         now    (System/currentTimeMillis)
         w2     (/ w 2.0)
         w6     (/ w 6.0)
@@ -41,16 +37,16 @@
     (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
     
     ; video feed
-    (if-let [image ^Image @video/image]
-      (do
-        (.drawImage g image 0 0 nil)
-        (.setColor g (Color. 0 0 0 96))
-        (.fillRect g 0 0 w h))
-      (do
-        (.setColor g background-color)
-        (.fillRect g 0 0 w h)
-        (.setColor g Color/WHITE)
-        (.drawString g "no image feed" 15 75)))
+    (if image
+      (doto g
+        (.drawImage image 0 0 w h 0 0 (.getWidth image nil) (.getHeight image nil) nil)
+        (.setColor (Color. 0 0 0 96))
+        (.fillRect 0 0 w h))
+      (doto g
+        (.setColor background-color)
+        (.fillRect 0 0 w h)
+        (.setColor Color/WHITE)
+        (.drawString "no image feed" 25 75)))
     
     ; emergency background    
     (when (= (:control-state telemetry) :emergency)
@@ -125,3 +121,66 @@
         (let [alt-box (* h (/ alt 3000.0))]
           (.setColor g alt-color)
           (.fillRect g (- w 40) (- h alt-box) 40 alt-box))))))
+
+;;
+;; Frame:
+;;
+
+(defprotocol IFrame
+  (paint [this renderer])
+  (close [this]))
+
+(defrecord Frame [^JFrame frame ^Canvas canvas]
+  IFrame
+  (paint [this renderer]
+    (let [strategy (.getBufferStrategy canvas)
+          g (.getDrawGraphics strategy)]
+      (try
+        (renderer g (.getWidth canvas) (.getHeight canvas))
+        (.show strategy)
+        (finally
+          (.dispose g)))))
+  (close [this]
+    (SwingUtilities/invokeLater
+      (fn [] (.setVisible frame false)))))
+
+(defn ^IFrame make-frame [& {:keys [max-size top exit-on-close]}]
+  (let [frame (JFrame.)
+        canvas (Canvas.)]
+    (.setIgnoreRepaint frame true)
+    (.setIgnoreRepaint canvas true)
+    (.add frame canvas)
+    (.setSize canvas 672 418)
+    (.pack frame)
+    (let [screen-size (.getScreenSize (Toolkit/getDefaultToolkit))]
+      (.setLocation frame (- (.width screen-size) 672) 0))
+    (when max-size
+      (.setExtendedState frame JFrame/MAXIMIZED_BOTH))
+    (when top
+      (.setAlwaysOnTop frame true))
+    (when exit-on-close
+      (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE))
+    (.setVisible frame true)
+    (.createBufferStrategy canvas 2)
+    (->Frame frame canvas)))
+
+;; 
+;; =================================================================================
+;; Lifecycle:
+;; =================================================================================
+;;
+
+(defn start-subsys! [config]
+  (let [frame (make-frame :top true)
+        task  (task/schedule :gui 50 paint frame render)]
+    (future
+      (try
+        (deref task)
+        (catch Exception _))
+      (close frame)))
+  config)
+
+(defn stop-subsys! [config]
+  (task/cancel :gui)
+  config)
+

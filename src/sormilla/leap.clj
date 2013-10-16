@@ -1,6 +1,8 @@
 (ns sormilla.leap
-  (:require [sormilla.math :as math])
-  (:import [com.leapmotion.leap Listener Controller Hand Frame Finger FingerList Vector Gesture GestureList Gesture$Type Pointable]))
+  (:require [sormilla.task :as task]
+            [sormilla.world :refer [world]]
+            [sormilla.math :as math])
+  (:import [com.leapmotion.leap Controller Hand Finger FingerList Vector]))
 
 (set! *warn-on-reflection* true)
 
@@ -17,33 +19,54 @@
 
 (def pitch (comp
              (math/lin-scale [-0.3 +0.3] [-100.0 +100.0])
-             (math/averager 10)
+             (math/averager 5)
              (math/clip-to-zero 0.15)))
 
 (def yaw (comp
            (math/lin-scale [-0.4 +0.4] [-100.0 +100.0])
-           (math/averager 10)
+           (math/averager 5)
            (math/clip-to-zero 0.15)))
 
 (def roll (comp
             -
-            (math/averager 10)
+            (partial * 0.8)
+            (math/averager 5)
             (math/clip-to-zero 0.15)))
 
-(defn ->hand [^Hand hand]
+(defn aim [^Hand hand]
   (let [fingers  (.fingers hand)
-        aim      (-> fingers middle-finger direction)]
-    (when aim
+        dir      (-> fingers middle-finger direction)]
+    (when dir
       {:quality       (.count fingers)
-       :pitch         (-> aim .pitch pitch)
-       :yaw           (-> aim .yaw yaw)
+       :pitch         (-> dir .pitch pitch)
+       :yaw           (-> dir .yaw yaw)
        :roll          (-> hand .palmNormal .roll roll)})))
 
-(defonce ^Controller connection (Controller.))
+(defn get-hand [^Controller controller]
+  (some-> controller
+    (as-> ^Controller c (when (.isConnected c) c))
+    (.frame)
+    (.hands)
+    (.leftmost)
+    (aim)))
 
-(defn leap [_]
-  (when (.isConnected connection)
-    (let [hands       (-> connection .frame .hands) 
-          hand-count  (.count hands)]
-      (when (pos? (.count hands))
-        (->hand (.leftmost hands))))))
+(defn leap-task [controller]
+  (swap! world assoc :leap (get-hand controller)))
+
+;;
+;; ============================================================================
+;; Lifecycle:
+;; ============================================================================
+;;
+
+(defn start-subsys! [config]
+  (let [controller (Controller.)]
+    (task/schedule :leap 50 leap-task controller)
+    (assoc config :leap-controller controller)))
+
+(defn stop-subsys! [config]
+  (task/cancel :leap)
+  (when-let [c (:leap-controller config)]
+    (.delete ^Controller c))
+  (dissoc config :leap-controller))
+

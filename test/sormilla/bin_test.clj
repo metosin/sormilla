@@ -33,6 +33,13 @@
   (java.util.Arrays/equals (i->ba 0x00000000) (byte-array (map byte (repeat 4 0)))) => true
   (java.util.Arrays/equals (i->ba 0x00010203) (byte-array (map byte (range 4)))) => true)
 
+(facts ba->ia
+  (let [source (byte-array (map ubyte [0x00 0x55 0x88 0xFF]))
+        target (int-array 4)
+        expected (int-array (map uint [0x00 0x55 0x88 0xFF]))]
+    (ba->ia source target 4)
+    (java.util.Arrays/equals target expected) => true))
+
 (facts get-int
   (get-int (i->ba 0x00000000) 0) => 0x00000000
   (get-int (i->ba 0x00010203) 0) => 0x03020100
@@ -56,3 +63,9 @@
   (get-byte (byte-array (map ubyte [0x00])) 0) => 0x00
   (get-byte (byte-array (map ubyte [0x01])) 0) => 0x01
   (get-byte (byte-array (map ubyte [0xFF])) 0) => 0xFF)
+
+(facts bits->i
+  (bits->i [])    => 0x00
+  (bits->i [0])   => 0x01
+  (bits->i [7])   => 0x80
+  (bits->i (range 16))  => 0xFFFF)
