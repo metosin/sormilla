@@ -16,7 +16,7 @@ to install that manually _(I'm looking for better solution, suggestions are welc
 [lein localrepo plugin](https://github.com/kumarshantanu/lein-localrepo):
 
 ```
-$ wget https://github.com/gigasquid/clj-drone/blob/master/h264/h264-decoder-1.0.jar
+$ wget 'https://github.com/gigasquid/clj-drone/blob/master/h264/h264-decoder-1.0.jar?raw=true' -O h264-decoder-1.0.jar
 $ lein localrepo install ./h264-decoder-1.0.jar h264-decoder/h264-decoder "1.0"
 ```
 
