@@ -92,7 +92,7 @@
 (defn video-streaming-task [cancel-ch]
   (loop []
     (println "video: connecting...")
-    (let [socket   (io-utils/open-video-socket #_ comm/drone-ip (InetAddress/getByName nil))
+    (let [socket   (io-utils/open-video-socket comm/drone-ip #_ (InetAddress/getByName nil))
           frame-ch (async/chan (async/sliding-buffer 10))
           image-ch (async/chan (async/sliding-buffer 1))
           [v ch]   (alts!! [cancel-ch

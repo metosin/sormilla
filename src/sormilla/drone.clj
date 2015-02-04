@@ -90,16 +90,16 @@
       (comm/send-commands! [command]))))
 
 (defn telemetry []
-  #_(swap! world assoc :telemetry (navdata/get-nav-data))
-  (swap! world assoc :telemetry {:pitch            0.1
-                                 :yaw              0.0
-                                 :roll            -0.4
-                                 :alt           1358.0
-                                 :vel-x            0.0
-                                 :vel-y            0.0
-                                 :vel-z            0.0
-                                 :control-state    :landed
-                                 :battery-percent  25.1}))
+  (swap! world assoc :telemetry (navdata/get-nav-data))
+  #_(swap! world assoc :telemetry {:pitch            0.1
+                                  :yaw              0.0
+                                  :roll            -0.4
+                                  :alt           1358.0
+                                  :vel-x            0.0
+                                  :vel-y            0.0
+                                  :vel-z            0.0
+                                  :control-state    :landed
+                                  :battery-percent  25.1}))
 
 (defn start-subsys! [config]
   (task/schedule :upstream 45 #'upstream)
