@@ -102,7 +102,7 @@
                                   :battery-percent  25.1}))
 
 (defn start-subsys! [config]
-  (task/schedule :upstream 45 #'upstream)
+  (task/schedule :upstream 30 #'upstream)
   (task/schedule :telemetry 60 #'telemetry)
   config)
 
