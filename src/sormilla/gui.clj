@@ -35,7 +35,7 @@
 
     ; setup
     (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
-    
+
     ; video feed
     (if image
       (doto g
@@ -47,8 +47,8 @@
         (.fillRect 0 0 w h)
         (.setColor Color/WHITE)
         (.drawString "no image feed" 25 75)))
-    
-    ; emergency background    
+
+    ; emergency background
     (when (= (:control-state telemetry) :emergency)
       (.setColor g (if (< (mod (System/currentTimeMillis) 400) 200) (Color. 128 16 16) (Color. 192 16 16)))
       (.fillRect g 0 0 w h))
@@ -71,12 +71,12 @@
       (when up     (.fill g (swing/->shape w2 h6 (* 4 w6) (* 2 h6) (* 2 w6) (* 2 h6))))
       (when down   (.fill g (swing/->shape w2 (* 5 h6) (* 4 w6) (* 4 h6) (* 2 w6) (* 4 h6))))
       (when space  (.fill g (swing/->shape 50 (- h 40) (- w 50) (- h 40) (- w 50) (- h 10) 50 (- h 10)))))
-    
+
     ; draw grid
     ;(.setColor g hud-lo-color)
     ;(doseq [x (range (/ w 10) w (/ w 10))] (.drawLine g x 0 x h))
     ;(doseq [y (range (/ h 10) h (/ h 10))] (.drawLine g 0 y w y))
-    
+
     ; draw zero axis
     (.setColor g hud-color)
     (.drawLine g w2 0 w2 h)
@@ -107,7 +107,7 @@
           (.drawOval g aim-x aim-y aim-w aim-h)
           (.drawLine g -2000 0 2000 0)
           (.drawLine g 0 -2000 0 2000))))
-    
+
     ; draw telemetry
     (let [{:keys [pitch roll alt]} telemetry]
       (when (and pitch roll alt)
@@ -164,7 +164,7 @@
     (.createBufferStrategy canvas 2)
     (->Frame frame canvas)))
 
-;; 
+;;
 ;; =================================================================================
 ;; Lifecycle:
 ;; =================================================================================
