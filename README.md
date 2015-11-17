@@ -33,7 +33,7 @@ Make sure you have LeapMotion attached to your computer and an AR.Drone up and r
 ## TODO
 
 - Use [component](https://github.com/stuartsierra/component)
-- Simplify the task handler implementation
+- Simplify the task scheduler implementation
 
 # Thanks
 

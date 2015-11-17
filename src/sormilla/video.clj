@@ -6,11 +6,10 @@
            [java.net Socket InetAddress])
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async :refer [>!! <!! alts!! go]]
-            [sormilla.world :refer [world]]
             [sormilla.bin :as bin :refer [ba->ia]]
             [sormilla.io-utils :as io-utils]
-            [sormilla.drone :as drone]
-            [sormilla.drone-comm :as comm]))
+            [sormilla.drone-comm :as comm]
+            [com.stuartsierra.component :as component]))
 
 (set! *warn-on-reflection* true)
 
@@ -85,11 +84,11 @@
       (when-let [image (frame-decoder frame)]
         (>!! image-ch image)))))
 
-(defn update-image-task [image-ch]
+(defn update-image-task [image-ch world]
   (while-let [image (<!! image-ch)]
     (swap! world assoc :image image)))
 
-(defn video-streaming-task [cancel-ch]
+(defn video-streaming-task [cancel-ch world]
   (loop []
     (println "video: connecting...")
     (let [socket   (io-utils/open-video-socket comm/drone-ip #_ (InetAddress/getByName nil))
@@ -98,7 +97,7 @@
           [v ch]   (alts!! [cancel-ch
                             (thread* (read-frame-task socket frame-ch))
                             (thread* (decode-frame-task frame-ch image-ch))
-                            (thread* (update-image-task image-ch))])]
+                            (thread* (update-image-task image-ch world))])]
       (println "video: cleanup...")
       (async/close! frame-ch)
       (async/close! image-ch)
@@ -114,14 +113,20 @@
 ;; ============================================================================
 ;;
 
-(defn start-subsys! [config]
-  (let [ch (async/chan)]
-    (thread* (video-streaming-task ch))
-    (assoc config :video ch)))
+(defrecord Video [ch world]
+  component/Lifecycle
+  (start [this]
+    (if ch
+      this
+      (let [ch (async/chan)]
+        (thread* (video-streaming-task ch (:state world)))
+        (assoc this :ch ch))))
+  (stop [this]
+    (when ch
+      (async/close! ch))
+    (assoc this :ch nil)))
 
-(defn stop-subsys! [config]
-  (when-let [ch (:video config)]
-    (async/close! ch))
-  (dissoc config :video))
+(defn create []
+  (map->Video {}))
 
 ; ffmpeg -f h264 -an -i capture.h264 stream.m4v

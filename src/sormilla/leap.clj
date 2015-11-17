@@ -1,7 +1,7 @@
 (ns sormilla.leap
   (:require [sormilla.task :as task]
-            [sormilla.world :refer [world]]
-            [sormilla.math :as math])
+            [sormilla.math :as math]
+            [com.stuartsierra.component :as component])
   (:import [com.leapmotion.leap Controller Hand Finger FingerList Vector]))
 
 (set! *warn-on-reflection* true)
@@ -50,7 +50,7 @@
     (.leftmost)
     (aim)))
 
-(defn leap-task [controller]
+(defn leap-task [world controller]
   (swap! world assoc :leap (get-hand controller)))
 
 ;;
@@ -59,14 +59,19 @@
 ;; ============================================================================
 ;;
 
-(defn start-subsys! [config]
-  (let [controller (Controller.)]
-    (task/schedule :leap 50 leap-task controller)
-    (assoc config :leap-controller controller)))
+(defrecord Leap [world controller task]
+  component/Lifecycle
+  (start [this]
+    (if-not controller
+      (let [controller (Controller.)]
+        (task/schedule task :leap 50 leap-task (:state world) controller)
+        (assoc this :controller controller))
+      this))
+  (stop [this]
+    (task/cancel task :leap)
+    (if controller
+      (.delete controller))
+    (assoc this :controller nil)))
 
-(defn stop-subsys! [config]
-  (task/cancel :leap)
-  (when-let [c (:leap-controller config)]
-    (.delete ^Controller c))
-  (dissoc config :leap-controller))
-
+(defn create []
+  (map->Leap {}))

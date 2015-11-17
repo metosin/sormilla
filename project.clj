@@ -6,13 +6,12 @@
                  [h264-decoder/h264-decoder "1.0"]
                  [amalloy/ring-buffer "1.2"]
                  [commons-io/commons-io "2.4"]
-                 [metosin/system "0.2.1"]]
+                 [com.stuartsierra/component "0.3.0"]
+                 [reloaded.repl "0.2.1"]]
   :main sormilla.main
   :repl-options {:init-ns user}
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[midje "1.8.2"]
-                                  [org.clojure/tools.namespace "0.2.10"]
-                                  [org.clojure/java.classpath "0.2.3"]]
+                   :dependencies [[midje "1.8.2"]]
                    :plugins [[lein-midje "3.2"]]}
              :video-sim {:main sormilla.video-sim}}
   :min-lein-version "2.3.2")

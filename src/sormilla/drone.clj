@@ -1,10 +1,10 @@
 (ns sormilla.drone
   (:require [sormilla.task :as task]
-            [sormilla.world :refer [world]]
             [sormilla.drone-comm :as comm]
             [sormilla.drone-navdata :as navdata]
             [sormilla.math :as math]
-            [sormilla.swing :as swing]))
+            [sormilla.swing :as swing]
+            [com.stuartsierra.component :as component]))
 
 (defn toggle-fly [status]
   (let [current-status (get-in status [:intent :intent-state] :init)
@@ -19,26 +19,27 @@
                         comm/land
                         comm/leds-active]))
 
-(swing/add-key-listener! {:type :pressed :code swing/key-space}
-  (fn [_] (swap! world toggle-fly)))
+(defn init-keybindings [swing world]
+  (swing/add-key-listener! swing {:type :pressed :code swing/key-space}
+                           (fn [_] (swap! world toggle-fly)))
 
-(swing/add-key-listener! {:type :pressed :code swing/key-esc :ctrl false}
-  (fn [_] (swap! world assoc-in [:intent :intent-state] :emergency)))
+  (swing/add-key-listener! swing {:type :pressed :code swing/key-esc :ctrl false}
+                           (fn [_] (swap! world assoc-in [:intent :intent-state] :emergency)))
 
-(swing/add-key-listener! {:type :pressed :code swing/key-esc :ctrl true}
-  (fn [_] (swap! world assoc-in [:intent :intent-state] :init)))
+  (swing/add-key-listener! swing {:type :pressed :code swing/key-esc :ctrl true}
+                           (fn [_] (swap! world assoc-in [:intent :intent-state] :init)))
 
-(swing/add-key-listener! {:type :pressed :code (int \T)}
-  (fn [_] (comm/send-commands! [comm/trim])))
+  (swing/add-key-listener! swing {:type :pressed :code (int \T)}
+                           (fn [_] (comm/send-commands! [comm/trim])))
 
-(swing/add-key-listener! {:type :pressed :code (int \L)}
-  (fn [_] (comm/send-commands! [comm/leds-active])))
+  (swing/add-key-listener! swing {:type :pressed :code (int \L)}
+                           (fn [_] (comm/send-commands! [comm/leds-active])))
 
-(swing/add-key-listener! {:type :released :code (int \L)}
-  (fn [_] (comm/send-commands! [comm/leds-reset])))
+  (swing/add-key-listener! swing {:type :released :code (int \L)}
+                           (fn [_] (comm/send-commands! [comm/leds-reset])))
 
-(swing/add-key-listener! {:type :pressed :code (int \I)}
-  (fn [_] (init-drone)))
+  (swing/add-key-listener! swing {:type :pressed :code (int \I)}
+                           (fn [_] (init-drone))))
 
 ;                    user        drone    command:
 (def state-commands [:emergency  :any     comm/emergency
@@ -84,13 +85,14 @@
       comm/hover
       (comm/move p r y a))))
 
-(defn upstream []
+(defn upstream [world]
   (let [w @world]
     (when-let [command (or (control-state-command w) (move-command w))]
       (comm/send-commands! [command]))))
 
-(defn telemetry []
-  (swap! world assoc :telemetry (navdata/get-nav-data))
+(defn telemetry [world nav-socket]
+  (println nav-socket)
+  (swap! world assoc :telemetry (navdata/get-nav-data nav-socket))
   #_(swap! world assoc :telemetry {:pitch            0.1
                                   :yaw              0.0
                                   :roll            -0.4
@@ -101,12 +103,18 @@
                                   :control-state    :landed
                                   :battery-percent  25.1}))
 
-(defn start-subsys! [config]
-  (task/schedule :upstream 30 #'upstream)
-  (task/schedule :telemetry 60 #'telemetry)
-  config)
+(defrecord Drone [task world swing navdata]
+  component/Lifecycle
+  (start [this]
+    (println "x" navdata)
+    (init-keybindings swing (:state world))
+    (task/schedule task :upstream 30 #'upstream (:state world))
+    (task/schedule task :telemetry 60 #'telemetry (:state world) (:nav-socket navdata))
+    this)
+  (stop [this]
+    (task/cancel task :upstream)
+    (task/cancel task :telemetry)
+    this))
 
-(defn stop-subsys! [config]
-  (task/cancel :upstream)
-  (task/cancel :telemetry)
-  config)
+(defn create []
+  (map->Drone {}))

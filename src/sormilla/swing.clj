@@ -1,6 +1,6 @@
 (ns sormilla.swing
   (:require [clojure.java.io :as io]
-            [sormilla.world :refer [world]])
+            [com.stuartsierra.component :as component])
   (:import [java.awt Graphics2D Shape Color KeyboardFocusManager KeyEventDispatcher Toolkit]
            [java.awt.geom Path2D$Double Ellipse2D$Double]
            [java.awt.event KeyEvent]))
@@ -53,9 +53,7 @@
    :meta   (.isMetaDown e)
    :alt    (.isAltDown e)})
 
-(def key-listeners (atom {}))
-
-(defonce key-event-dispatcher
+(defn init-key-event-dispatcher [key-listeners]
   (let [d (proxy [KeyEventDispatcher] []
             (dispatchKeyEvent [e]
               (let [e (->key-event e)]
@@ -65,12 +63,27 @@
     (.addKeyEventDispatcher (KeyboardFocusManager/getCurrentKeyboardFocusManager) d)
     d))
 
-(defn add-key-listener! [event listener]
-  (swap! key-listeners assoc event listener))
+(defn add-key-listener! [swing event listener]
+  (swap! (:key-listeners swing) assoc event listener))
 
-(defn remove-key-listener! [event]
-  (swap! key-listeners dissoc event))
+(defn remove-key-listener! [swing event]
+  (swap! (:key-listeners swing) dissoc event))
 
-(doseq [[code key-name] (partition 2 [key-left :left key-right :right key-up :up key-down :down])]
-  (add-key-listener! {:type :pressed :code code} (fn [_] (swap! world assoc-in [:keys key-name] true)))
-  (add-key-listener! {:type :released :code code} (fn [_] (swap! world assoc-in [:keys key-name] false))))
+(defrecord Swing [key-listeners world]
+  component/Lifecycle
+  (start [this]
+    (if key-listeners
+      this
+      (let [this (assoc this :key-listeners (atom {}))]
+        (init-key-event-dispatcher (:key-listeners this))
+        (doseq [[code key-name] (partition 2 [key-left :left key-right :right key-up :up key-down :down])]
+          (add-key-listener! this {:type :pressed :code code} (fn [_] (swap! (:state world) assoc-in [:keys key-name] true)))
+          (add-key-listener! this {:type :released :code code} (fn [_] (swap! (:state world) assoc-in [:keys key-name] false))))
+        this)))
+  (stop [this]
+    (doseq [[k _] @key-listeners]
+      (remove-key-listener! this k))
+    (assoc this :key-listeners nil)))
+
+(defn create []
+  (map->Swing {}))

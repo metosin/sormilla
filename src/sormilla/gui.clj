@@ -1,7 +1,7 @@
 (ns sormilla.gui
-  (:require [sormilla.world :refer [world]]
-            [sormilla.swing :refer [with-transforms] :as swing]
-            [sormilla.task :as task])
+  (:require [sormilla.swing :refer [with-transforms] :as swing]
+            [sormilla.task :as task]
+            [com.stuartsierra.component :as component])
   (:import [java.awt Graphics2D Canvas Color Toolkit RenderingHints Image]
            [javax.swing JFrame SwingUtilities]))
 
@@ -25,7 +25,7 @@
                      (Color.   64  192  64   128)
                      (Color.   64  192  64   255)])
 
-(defn render [^Graphics2D g ^long w ^long h]
+(defn render [world ^Graphics2D g ^long w ^long h]
   (let [{:keys [leap telemetry keys intent ^Image image]} @world
         now    (System/currentTimeMillis)
         w2     (/ w 2.0)
@@ -170,17 +170,20 @@
 ;; =================================================================================
 ;;
 
-(defn start-subsys! [config]
-  (let [frame (make-frame :top true)
-        task  (task/schedule :gui 50 paint frame render)]
-    (future
-      (try
-        (deref task)
-        (catch Exception _))
-      (close frame)))
-  config)
+(defrecord Gui [task world]
+  component/Lifecycle
+  (start [this]
+    (let [frame (make-frame :top true)
+          task  (task/schedule task :gui 50 paint frame (partial render (:state world)))]
+      (future
+        (try
+          (deref task)
+          (catch Exception _))
+        (close frame)))
+    this)
+  (stop [this]
+    (task/cancel task :gui)
+    this))
 
-(defn stop-subsys! [config]
-  (task/cancel :gui)
-  config)
-
+(defn create []
+  (map->Gui {}))

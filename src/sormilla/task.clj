@@ -1,8 +1,6 @@
 (ns sormilla.task
+  (:require [com.stuartsierra.component :as component])
   (:import [java.util.concurrent Future Executors TimeUnit ExecutionException CancellationException]))
-
-(defonce ^:private tasks (atom {}))
-(defonce ^:private executor (atom nil))
 
 (defn wrap-task [id task-fn args]
   (fn []
@@ -13,24 +11,25 @@
         (.printStackTrace e)
         (Thread/sleep 1000)))))
 
-(defn cancel [id]
-  (when-let [^Future f (get @tasks id)]
-    (swap! tasks dissoc id)
+(defn cancel [task id]
+  (when-let [^Future f (get (:tasks task) id)]
+    (swap! (:tasks task) dissoc id)
     (.cancel f true)))
 
-(defn- execute [execute-fn id task-fn args]
-  (cancel id)
-  (let [e @executor
+(defn- execute [task execute-fn id task-fn args]
+  (cancel task id)
+  (let [e (:executor task)
         t (wrap-task id task-fn args)
         f (execute-fn e t)]
-    (swap! tasks assoc id f)
+    (swap! (:tasks task) assoc id f)
     f))
 
-(defn submit [id task-fn & args]
-  (execute (fn [e t] (.submit e t)) id task-fn args))
+(defn submit [task id task-fn & args]
+  (execute task (fn [e t] (.submit e t)) id task-fn args))
 
-(defn schedule [id interval task-fn & args]
+(defn schedule [task id interval task-fn & args]
   (execute
+    task
     (fn [e t] (.scheduleAtFixedRate e t interval interval TimeUnit/MILLISECONDS))
     id
     task-fn
@@ -42,16 +41,21 @@
 ;; ============================================================================
 ;;
 
-(defn start-subsys! [config]
-  (reset! executor (Executors/newScheduledThreadPool 4))
-  (reset! tasks {})
-  config)
+(defrecord Task [tasks executor]
+  component/Lifecycle
+  (start [this]
+    (assoc this
+           :tasks (atom {})
+           :executor (Executors/newScheduledThreadPool 4)))
+  (stop [this]
+    (when executor
+      (.shutdown executor))
+    (when tasks
+      (doseq [id (keys @tasks)]
+        (cancel this id)))
+    (assoc this :tasks nil :exectutor nil)))
 
-(defn stop-subsys! [config]
-  (when-let [es @executor]
-    (reset! executor nil)
-    (.shutdown es))
-  (doseq [id (keys @tasks)]
-    (cancel id))
-  config)
+(defn create []
+  (map->Task {}))
+
 
