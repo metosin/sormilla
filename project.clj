@@ -1,13 +1,12 @@
 (defproject sormilla "0.3.1"
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.242.0-44b1e3-alpha"]
-                 [rogerallen/leaplib "2.0.2"]
-                 [rogerallen/leaplib-natives "2.0.2"]
+                 [metosin/leaplib "2.3.1"]
+                 [metosin/leaplib-natives "2.3.1"]
                  [h264-decoder/h264-decoder "1.0"]
                  [amalloy/ring-buffer "1.0"]
                  [commons-io/commons-io "2.4"]
                  [metosin/system "0.2.1"]]
-  :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[midje "1.5.1"]
                                   [org.clojure/tools.namespace "0.2.4"]
