@@ -30,6 +30,11 @@ $ lein run
 
 Make sure you have LeapMotion attached to your computer and an AR.Drone up and running. Note that you need to be in the same WLAN with the drone.
 
+## TODO
+
+- Use [component](https://github.com/stuartsierra/component)
+- Simplify the task handler implementation
+
 # Thanks
 
 Special thanks to https://github.com/nakkaya/ardrone and https://github.com/gigasquid/clj-drone.
