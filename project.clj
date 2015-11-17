@@ -7,14 +7,12 @@
                  [amalloy/ring-buffer "1.2"]
                  [commons-io/commons-io "2.4"]
                  [metosin/system "0.2.1"]]
+  :main sormilla.main
+  :repl-options {:init-ns user}
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[midje "1.8.2"]
                                   [org.clojure/tools.namespace "0.2.10"]
                                   [org.clojure/java.classpath "0.2.3"]]
                    :plugins [[lein-midje "3.2"]]}
-             :uberjar {:source-paths ["main"]
-                       :main sormilla.main
-                       :aot [sormilla.main]}
-             :video-sim {:source-paths ["src"]
-                         :main sormilla.video-sim}}
+             :video-sim {:main sormilla.video-sim}}
   :min-lein-version "2.3.2")

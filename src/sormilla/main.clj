@@ -3,4 +3,4 @@
 
 (defn -main [& args]
   (require 'sormilla.system)
-  ((resolve 'sormilla.system/start!)))
+  ((resolve 'sormilla.system/start-system!)))
